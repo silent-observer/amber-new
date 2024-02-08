@@ -1,8 +1,11 @@
-use crate::common::{TimeDiff, Timestamp};
+pub type Timestamp = i64;
+pub type TickTimestamp = i64;
+pub type TimeDiff = i64;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Clock {
     current_time: Timestamp,
+    current_tick: TickTimestamp,
     time_per_tick: TimeDiff,
 }
 
@@ -10,6 +13,7 @@ impl Clock {
     pub const fn new(time_per_tick: TimeDiff) -> Self {
         Clock {
             current_time: 0,
+            current_tick: 0,
             time_per_tick,
         }
     }
@@ -32,5 +36,6 @@ impl Clock {
     #[inline]
     pub fn advance(&mut self, ticks: i64) {
         self.current_time += self.time_per_tick * ticks;
+        self.current_tick += ticks;
     }
 }

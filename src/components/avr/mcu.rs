@@ -10,7 +10,7 @@ mod transfer;
 use bitfield::Bit;
 
 use crate::{
-    common::Timestamp,
+    clock::Timestamp,
     events::{Event, EventQueue, EventReceiver},
     module::{ActiveModule, Module, PinId, WireableModule},
     module_holder::PassiveModuleStore,
@@ -273,8 +273,8 @@ impl ActiveModule for Mcu {
 
 impl WireableModule for Mcu {
     #[inline]
-    fn get_pin(&self, id: PinId) -> WireState {
-        self.io.get_pin(id)
+    fn get_pin(&self, queue: &EventQueue, id: PinId) -> WireState {
+        self.io.get_pin(queue, id)
     }
 
     #[inline]

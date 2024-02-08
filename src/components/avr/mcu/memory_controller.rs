@@ -36,7 +36,7 @@ impl Mcu {
     }
     pub fn read_io(&self, i: u8) -> u8 {
         match i {
-            0x00..=0x3A => self.io.read_port_internal(i.into()),
+            0x00..=0x3A => self.io.read_port_internal(&self.queue, i.into()),
             0x3B => self.rampz,
             0x3C => self.eind,
             0x3D => self.sp as u8,
@@ -65,7 +65,7 @@ impl Mcu {
         match addr {
             0x0000..=0x001F => self.read_register(addr),
             0x0020..=0x005F => self.read_io((addr - 0x20) as u8),
-            0x0060..=0x01FF => self.io.read_port(addr.into()),
+            0x0060..=0x01FF => self.io.read_port(&self.queue, addr.into()),
             0x0200..=SRAM_END => self.sram[addr as usize - 0x200],
             _ => 0,
         }

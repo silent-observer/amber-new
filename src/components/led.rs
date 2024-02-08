@@ -31,7 +31,7 @@ impl Module for Led {
 }
 
 impl WireableModule for Led {
-    fn get_pin(&self, _id: PinId) -> WireState {
+    fn get_pin(&self, _queue: &EventQueue, _id: PinId) -> WireState {
         WireState::Z
     }
 

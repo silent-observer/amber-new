@@ -9,7 +9,6 @@ use wiring::{InboxTable, WiringTable};
 use crate::components::avr::mcu;
 
 pub mod clock;
-pub mod common;
 pub mod components;
 pub mod events;
 pub mod module;

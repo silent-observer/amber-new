@@ -1,6 +1,7 @@
 use bitfield::{Bit, BitMut};
 
 use crate::{
+    clock::Timestamp,
     events::{Event, EventData, EventQueue, EventReceiver},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_id::ModuleId,
@@ -90,7 +91,7 @@ impl EventReceiver for GpioBank {
 }
 
 impl WireableModule for GpioBank {
-    fn get_pin(&self, id: PinId) -> WireState {
+    fn get_pin(&self, queue: &EventQueue, id: PinId) -> WireState {
         self.output_states[id]
     }
 
@@ -113,7 +114,7 @@ impl WireableModule for GpioBank {
 
 impl DataModule for GpioBank {
     type PortType = u8;
-    fn read_port(&self, id: PortId) -> u8 {
+    fn read_port(&self, queue: &EventQueue, id: PortId) -> u8 {
         match id {
             0 => self.read_pin(),
             1 => self.ddr_register,

@@ -69,19 +69,19 @@ impl EventReceiver for IoController {
 }
 
 impl WireableModule for IoController {
-    fn get_pin(&self, id: PinId) -> WireState {
+    fn get_pin(&self, queue: &EventQueue, id: PinId) -> WireState {
         match id {
-            0..=7 => self.gpio[0].get_pin(id),         // Port A
-            8..=15 => self.gpio[1].get_pin(id - 8),    // Port B
-            16..=23 => self.gpio[2].get_pin(id - 16),  // Port C
-            24..=31 => self.gpio[3].get_pin(id - 24),  // Port D
-            32..=39 => self.gpio[4].get_pin(id - 32),  // Port E
-            40..=47 => self.gpio[5].get_pin(id - 40),  // Port F
-            48..=53 => self.gpio[6].get_pin(id - 48),  // Port G, ONLY 6 PINS
-            54..=61 => self.gpio[7].get_pin(id - 54),  // Port H
-            62..=69 => self.gpio[8].get_pin(id - 62),  // Port J
-            70..=77 => self.gpio[9].get_pin(id - 70),  // Port K
-            78..=85 => self.gpio[10].get_pin(id - 78), // Port L
+            0..=7 => self.gpio[0].get_pin(queue, id),         // Port A
+            8..=15 => self.gpio[1].get_pin(queue, id - 8),    // Port B
+            16..=23 => self.gpio[2].get_pin(queue, id - 16),  // Port C
+            24..=31 => self.gpio[3].get_pin(queue, id - 24),  // Port D
+            32..=39 => self.gpio[4].get_pin(queue, id - 32),  // Port E
+            40..=47 => self.gpio[5].get_pin(queue, id - 40),  // Port F
+            48..=53 => self.gpio[6].get_pin(queue, id - 48),  // Port G, ONLY 6 PINS
+            54..=61 => self.gpio[7].get_pin(queue, id - 54),  // Port H
+            62..=69 => self.gpio[8].get_pin(queue, id - 62),  // Port J
+            70..=77 => self.gpio[9].get_pin(queue, id - 70),  // Port K
+            78..=85 => self.gpio[10].get_pin(queue, id - 78), // Port L
             _ => panic!("Invalid port id: {}", id),
         }
     }
@@ -123,22 +123,22 @@ impl WireableModule for IoController {
 
 impl DataModule for IoController {
     type PortType = u8;
-    fn read_port(&self, id: PortId) -> u8 {
+    fn read_port(&self, queue: &EventQueue, id: PortId) -> u8 {
         match id {
             0x00..=0x1F => panic!("Invalid address {:#02X}", id),
 
-            0x20..=0x22 => self.gpio[0].read_port(id - 0x20), // Port A
-            0x23..=0x25 => self.gpio[1].read_port(id - 0x23), // Port B
-            0x26..=0x28 => self.gpio[2].read_port(id - 0x26), // Port C
-            0x29..=0x2B => self.gpio[3].read_port(id - 0x29), // Port D
-            0x2C..=0x2E => self.gpio[4].read_port(id - 0x2C), // Port E
-            0x2F..=0x31 => self.gpio[5].read_port(id - 0x2F), // Port F
-            0x32..=0x34 => self.gpio[6].read_port(id - 0x32), // Port G
+            0x20..=0x22 => self.gpio[0].read_port(queue, id - 0x20), // Port A
+            0x23..=0x25 => self.gpio[1].read_port(queue, id - 0x23), // Port B
+            0x26..=0x28 => self.gpio[2].read_port(queue, id - 0x26), // Port C
+            0x29..=0x2B => self.gpio[3].read_port(queue, id - 0x29), // Port D
+            0x2C..=0x2E => self.gpio[4].read_port(queue, id - 0x2C), // Port E
+            0x2F..=0x31 => self.gpio[5].read_port(queue, id - 0x2F), // Port F
+            0x32..=0x34 => self.gpio[6].read_port(queue, id - 0x32), // Port G
 
-            0x100..=0x102 => self.gpio[7].read_port(id - 0x100), // Port H
-            0x103..=0x105 => self.gpio[8].read_port(id - 0x103), // Port J
-            0x106..=0x108 => self.gpio[9].read_port(id - 0x106), // Port K
-            0x109..=0x10B => self.gpio[10].read_port(id - 0x109), // Port L
+            0x100..=0x102 => self.gpio[7].read_port(queue, id - 0x100), // Port H
+            0x103..=0x105 => self.gpio[8].read_port(queue, id - 0x103), // Port J
+            0x106..=0x108 => self.gpio[9].read_port(queue, id - 0x106), // Port K
+            0x109..=0x10B => self.gpio[10].read_port(queue, id - 0x109), // Port L
 
             _ => panic!("Invalid address: {}", id),
         }
@@ -168,9 +168,9 @@ impl DataModule for IoController {
 
 impl IoController {
     #[inline]
-    pub fn read_port_internal(&self, id: PortId) -> u8 {
+    pub fn read_port_internal(&self, queue: &EventQueue, id: PortId) -> u8 {
         assert!(id < 0x40);
-        self.read_port(id + 0x20)
+        self.read_port(queue, id + 0x20)
     }
 
     #[inline]

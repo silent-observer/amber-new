@@ -2,8 +2,7 @@ use kanal::Receiver;
 use priority_queue::PriorityQueue;
 
 use crate::{
-    clock::Clock,
-    common::{TimeDiff, Timestamp},
+    clock::{Clock, TimeDiff, Timestamp},
     module::Module,
     module_id::ModuleId,
     pin_state::WireState,
