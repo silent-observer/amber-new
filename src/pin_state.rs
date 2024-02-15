@@ -9,6 +9,12 @@ pub enum WireState {
 }
 
 impl WireState {
+    pub fn from_bool(b: bool) -> WireState {
+        match b {
+            true => WireState::High,
+            false => WireState::Low,
+        }
+    }
     pub fn combine(&self, other: &WireState) -> WireState {
         match (*self, *other) {
             (WireState::Z, x) | (x, WireState::Z) => x,

@@ -1,32 +1,52 @@
 use crate::{
-    events::EventQueue,
+    events::{EventQueue, InternalEvent},
     module::{Module, PinId, WireableModule},
-    module_id::ModuleId,
+    module_id::ModuleAddress,
     pin_state::{InputPinState, WireState},
 };
 
 #[derive(Debug, Clone, Copy)]
 pub struct Led {
-    module_id: ModuleId,
+    module_id: ModuleAddress,
     state: bool,
 }
 
 impl Led {
-    pub fn new() -> Led {
+    pub fn new(module_id: ModuleAddress) -> Led {
         Led {
-            module_id: ModuleId::default(),
+            module_id,
             state: false,
         }
     }
 }
 
 impl Module for Led {
-    fn module_id(&self) -> ModuleId {
+    fn address(&self) -> ModuleAddress {
         self.module_id
     }
 
-    fn set_module_id(&mut self, module_id: ModuleId) {
-        self.module_id = module_id;
+    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue) {
+        panic!("LED can't handle events");
+    }
+
+    fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {
+        if address.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module> {
+        if address.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
     }
 }
 
@@ -39,24 +59,20 @@ impl WireableModule for Led {
         match InputPinState::read_wire_state(data) {
             InputPinState::High => {
                 if !self.state {
-                    // println!("{}: LED ON: {}", queue.clock.current_time(), self.module_id);
+                    println!("{}: LED ON: {}", queue.clock.current_time(), self.module_id);
                 }
                 self.state = true;
             }
             InputPinState::Low => {
                 if self.state {
-                    // println!(
-                    //     "{}: LED OFF: {}",
-                    //     queue.clock.current_time(),
-                    //     self.module_id
-                    // );
+                    println!(
+                        "{}: LED OFF: {}",
+                        queue.clock.current_time(),
+                        self.module_id
+                    );
                 }
                 self.state = false;
             }
         }
-    }
-
-    fn get_pin_module(&self, _id: PinId) -> Option<ModuleId> {
-        Some(self.module_id.with_event(0))
     }
 }

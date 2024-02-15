@@ -2,9 +2,9 @@ use std::fmt::Debug;
 
 use crate::{
     clock::Timestamp,
-    events::{EventQueue, EventReceiver},
+    events::{EventQueue, InternalEvent},
     module_holder::PassiveModuleStore,
-    module_id::ModuleId,
+    module_id::ModuleAddress,
     pin_state::WireState,
 };
 
@@ -12,8 +12,12 @@ pub type PortId = usize;
 pub type PinId = usize;
 
 pub trait Module: Debug {
-    fn module_id(&self) -> ModuleId;
-    fn set_module_id(&mut self, module_id: ModuleId);
+    fn address(&self) -> ModuleAddress;
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue);
+    fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;
+    fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module>;
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule>;
 }
 
 pub trait DataModule: Module {
@@ -25,10 +29,9 @@ pub trait DataModule: Module {
 pub trait WireableModule: Module {
     fn get_pin(&self, queue: &EventQueue, id: PinId) -> WireState;
     fn set_pin(&mut self, queue: &mut EventQueue, id: PinId, data: WireState);
-    fn get_pin_module(&self, id: PinId) -> Option<ModuleId>;
 }
 
-pub trait ActiveModule: EventReceiver + Module {
+pub trait ActiveModule: Module {
     fn run_until_time(&mut self, t: Timestamp);
     fn module_store(&mut self) -> &mut PassiveModuleStore;
 }

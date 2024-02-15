@@ -1,28 +1,32 @@
 use std::ops::Deref;
 
 use crate::{
-    events::{Event, EventData, EventQueue, EventReceiver},
+    events::{EventQueue, InternalEvent},
     module::{Module, WireableModule},
-    module_id::ModuleId,
+    module_id::ModuleAddress,
 };
 
 #[derive(Debug)]
 pub struct PassiveModuleStore {
-    module_id: ModuleId,
+    module_id: ModuleAddress,
     modules: Vec<Box<dyn WireableModule>>,
 }
 
 impl PassiveModuleStore {
-    pub fn new() -> Self {
+    pub fn new(module_id: ModuleAddress) -> Self {
         Self {
-            module_id: ModuleId::default(),
+            module_id,
             modules: Vec::new(),
         }
     }
 
-    pub fn add_module(&mut self, mut module: Box<dyn WireableModule>) -> &dyn WireableModule {
+    pub fn add_module<M, F>(&mut self, f: F) -> &dyn WireableModule
+    where
+        M: WireableModule + 'static,
+        F: FnOnce(ModuleAddress) -> M,
+    {
         let module_id = self.module_id.child_id(self.modules.len() as u8);
-        module.set_module_id(module_id);
+        let module = Box::new(f(module_id));
         self.modules.push(module);
         self.modules.last().unwrap().deref()
     }
@@ -30,27 +34,30 @@ impl PassiveModuleStore {
 
 impl Module for PassiveModuleStore {
     #[inline]
-    fn module_id(&self) -> ModuleId {
+    fn address(&self) -> ModuleAddress {
         self.module_id
     }
 
-    fn set_module_id(&mut self, module_id: ModuleId) {
-        self.module_id = module_id;
-        for (i, module) in self.modules.iter_mut().enumerate() {
-            module.set_module_id(self.module_id.child_id(i as u8));
-        }
+    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue) {
+        panic!("Cannot send event to passive module store");
     }
-}
 
-impl EventReceiver for PassiveModuleStore {
-    fn receive_event(&mut self, event: Event, queue: &mut EventQueue) {
-        let i = event.receiver_id.current() as usize;
-        let port = event.receiver_id.event_port as usize;
+    fn find(&self, mut address: ModuleAddress) -> Option<&dyn Module> {
+        let i = address.current() as usize;
         assert!(i < self.modules.len());
-        if let EventData::WireState(state) = event.data {
-            self.modules[i].set_pin(queue, port, state);
-        } else {
-            panic!("Cannot send non-wire event to passive module");
-        }
+        address.advance();
+        self.modules[i].find(address)
+    }
+
+    fn find_mut(&mut self, mut address: ModuleAddress) -> Option<&mut dyn Module> {
+        assert!(!address.is_empty());
+        let i = address.current() as usize;
+        assert!(i < self.modules.len());
+        address.advance();
+        self.modules[i].find_mut(address)
+    }
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+        None
     }
 }

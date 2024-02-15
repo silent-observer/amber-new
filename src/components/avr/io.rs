@@ -1,70 +1,160 @@
+use std::pin;
+
 use crate::{
-    events::{Event, EventQueue, EventReceiver},
+    events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_holder::PassiveModuleStore,
-    module_id::ModuleId,
+    module_id::{ModuleAddress, PinAddress},
     pin_state::WireState,
 };
 
-use self::gpio::GpioBank;
+use self::{gpio::GpioBank, timer16::Timer16};
 
 mod gpio;
+pub mod timer16;
 
 #[derive(Debug)]
 pub struct IoController {
-    module_id: ModuleId,
+    module_id: ModuleAddress,
     pub module_store: PassiveModuleStore,
     gpio: [GpioBank; 11],
     interrupt: bool,
+
+    timer1: Timer16,
+    timer3: Timer16,
+    timer4: Timer16,
+    timer5: Timer16,
+}
+
+const BANK_A: u8 = 1;
+const BANK_B: u8 = 2;
+const BANK_C: u8 = 3;
+const BANK_D: u8 = 4;
+const BANK_E: u8 = 5;
+const BANK_F: u8 = 6;
+const BANK_G: u8 = 7;
+const BANK_H: u8 = 8;
+const BANK_J: u8 = 9;
+const BANK_K: u8 = 10;
+const BANK_L: u8 = 11;
+
+const TIMER_1: u8 = 12;
+const TIMER_3: u8 = 13;
+const TIMER_4: u8 = 14;
+const TIMER_5: u8 = 15;
+
+const fn pin_id(bank: u8, pin: u8) -> u8 {
+    if bank <= BANK_G {
+        (bank - 1) * 8 + pin
+    } else {
+        (bank - 1) * 8 - 2 + pin
+    }
 }
 
 impl IoController {
-    pub fn new() -> Self {
+    pub fn new(module_id: ModuleAddress, queue: &mut EventQueue) -> Self {
+        for i in 0..3 {
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_B, 5 + i)),
+                &[
+                    module_id.child_id(TIMER_1).with_pin(i),
+                    module_id.child_id(BANK_B).with_pin(5 + i),
+                ],
+            );
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_E, 3 + i)),
+                &[
+                    module_id.child_id(TIMER_3).with_pin(i),
+                    module_id.child_id(BANK_E).with_pin(3 + i),
+                ],
+            );
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_H, 3 + i)),
+                &[
+                    module_id.child_id(TIMER_4).with_pin(i),
+                    module_id.child_id(BANK_H).with_pin(3 + i),
+                ],
+            );
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_L, 3 + i)),
+                &[
+                    module_id.child_id(TIMER_5).with_pin(i),
+                    module_id.child_id(BANK_L).with_pin(3 + i),
+                ],
+            );
+        }
+
         Self {
+            module_id,
+            module_store: PassiveModuleStore::new(module_id.child_id(0)),
+
             gpio: [
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
-                GpioBank::new(),
+                GpioBank::new(module_id.child_id(BANK_A)),
+                GpioBank::new(module_id.child_id(BANK_B)),
+                GpioBank::new(module_id.child_id(BANK_C)),
+                GpioBank::new(module_id.child_id(BANK_D)),
+                GpioBank::new(module_id.child_id(BANK_E)),
+                GpioBank::new(module_id.child_id(BANK_F)),
+                GpioBank::new(module_id.child_id(BANK_G)),
+                GpioBank::new(module_id.child_id(BANK_H)),
+                GpioBank::new(module_id.child_id(BANK_J)),
+                GpioBank::new(module_id.child_id(BANK_K)),
+                GpioBank::new(module_id.child_id(BANK_L)),
             ],
             interrupt: false,
-            module_id: ModuleId::default(),
-            module_store: PassiveModuleStore::new(),
+
+            timer1: Timer16::new(module_id.child_id(TIMER_1), module_id.with_event_port(0)),
+            timer3: Timer16::new(module_id.child_id(TIMER_3), module_id.with_event_port(0)),
+            timer4: Timer16::new(module_id.child_id(TIMER_4), module_id.with_event_port(0)),
+            timer5: Timer16::new(module_id.child_id(TIMER_5), module_id.with_event_port(0)),
         }
     }
 }
 
 impl Module for IoController {
     #[inline]
-    fn module_id(&self) -> ModuleId {
+    fn address(&self) -> ModuleAddress {
         self.module_id
     }
 
-    fn set_module_id(&mut self, module_id: ModuleId) {
-        self.module_id = module_id;
-        self.module_store.set_module_id(module_id.child_id(0));
-        for (i, bank) in self.gpio.iter_mut().enumerate() {
-            bank.set_module_id(module_id.child_id(i as u8 + 1));
+    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue) {
+        panic!("No internal event for IoController: {:?}", event);
+    }
+
+    fn find(&self, mut address: ModuleAddress) -> Option<&dyn Module> {
+        let id = address.current();
+        address.advance();
+        match id {
+            0 => self.module_store.find(address),
+            1..=11 => self.gpio[id as usize - 1].find(address),
+            12 => self.timer1.find(address),
+            13 => self.timer3.find(address),
+            14 => self.timer4.find(address),
+            15 => self.timer5.find(address),
+            _ => None,
         }
     }
-}
 
-impl EventReceiver for IoController {
-    fn receive_event(&mut self, mut event: Event, queue: &mut EventQueue) {
-        let id = event.receiver_id.current();
-        event.receiver_id.advance();
-        match id {
-            0 => self.module_store.receive_event(event, queue),
-            1..=11 => self.gpio[id as usize - 1].receive_event(event, queue),
-            _ => panic!("Invalid event receiver: {}", event.receiver_id),
+    fn find_mut(&mut self, mut address: ModuleAddress) -> Option<&mut dyn Module> {
+        if address.is_empty() {
+            return Some(self);
         }
+
+        let id = address.current();
+        address.advance();
+        match id {
+            0 => self.module_store.find_mut(address),
+            1..=11 => self.gpio[id as usize - 1].find_mut(address),
+            12 => self.timer1.find_mut(address),
+            13 => self.timer3.find_mut(address),
+            14 => self.timer4.find_mut(address),
+            15 => self.timer5.find_mut(address),
+            _ => None,
+        }
+    }
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
     }
 }
 
@@ -102,23 +192,6 @@ impl WireableModule for IoController {
             _ => panic!("Invalid port id: {}", id),
         }
     }
-
-    fn get_pin_module(&self, id: PinId) -> Option<ModuleId> {
-        match id {
-            0..=7 => self.gpio[0].get_pin_module(id),         // Port A
-            8..=15 => self.gpio[1].get_pin_module(id - 8),    // Port B
-            16..=23 => self.gpio[2].get_pin_module(id - 16),  // Port C
-            24..=31 => self.gpio[3].get_pin_module(id - 24),  // Port D
-            32..=39 => self.gpio[4].get_pin_module(id - 32),  // Port E
-            40..=47 => self.gpio[5].get_pin_module(id - 40),  // Port F
-            48..=53 => self.gpio[6].get_pin_module(id - 48),  // Port G, ONLY 6 PINS
-            54..=61 => self.gpio[7].get_pin_module(id - 54),  // Port H
-            62..=69 => self.gpio[8].get_pin_module(id - 62),  // Port J
-            70..=77 => self.gpio[9].get_pin_module(id - 70),  // Port K
-            78..=85 => self.gpio[10].get_pin_module(id - 78), // Port L
-            _ => None,
-        }
-    }
 }
 
 impl DataModule for IoController {
@@ -135,10 +208,16 @@ impl DataModule for IoController {
             0x2F..=0x31 => self.gpio[5].read_port(queue, id - 0x2F), // Port F
             0x32..=0x34 => self.gpio[6].read_port(queue, id - 0x32), // Port G
 
+            0x80..=0x8F => self.timer1.read_port(queue, id - 0x80), // Timer 1
+            0x90..=0x9F => self.timer3.read_port(queue, id - 0x90), // Timer 3
+            0xA0..=0xAF => self.timer4.read_port(queue, id - 0xA0), // Timer 4
+
             0x100..=0x102 => self.gpio[7].read_port(queue, id - 0x100), // Port H
             0x103..=0x105 => self.gpio[8].read_port(queue, id - 0x103), // Port J
             0x106..=0x108 => self.gpio[9].read_port(queue, id - 0x106), // Port K
             0x109..=0x10B => self.gpio[10].read_port(queue, id - 0x109), // Port L
+
+            0x120..=0x12F => self.timer5.read_port(queue, id - 0x120), // Timer 5
 
             _ => panic!("Invalid address: {}", id),
         }
@@ -156,10 +235,16 @@ impl DataModule for IoController {
             0x2F..=0x31 => self.gpio[5].write_port(queue, id - 0x2F, data), // Port F
             0x32..=0x34 => self.gpio[6].write_port(queue, id - 0x32, data), // Port G
 
+            0x80..=0x8F => self.timer1.write_port(queue, id - 0x80, data), // Timer 1
+            0x90..=0x9F => self.timer3.write_port(queue, id - 0x90, data), // Timer 3
+            0xA0..=0xAF => self.timer4.write_port(queue, id - 0xA0, data), // Timer 4
+
             0x100..=0x102 => self.gpio[7].write_port(queue, id - 0x100, data), // Port H
             0x103..=0x105 => self.gpio[8].write_port(queue, id - 0x103, data), // Port J
             0x106..=0x108 => self.gpio[9].write_port(queue, id - 0x106, data), // Port K
             0x109..=0x10B => self.gpio[10].write_port(queue, id - 0x109, data), // Port L
+
+            0x120..=0x12F => self.timer5.write_port(queue, id - 0x120, data),
 
             _ => panic!("Invalid address: {}", id),
         }

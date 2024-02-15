@@ -11,10 +11,10 @@ use bitfield::Bit;
 
 use crate::{
     clock::Timestamp,
-    events::{Event, EventQueue, EventReceiver},
+    events::{EventQueue, InternalEvent},
     module::{ActiveModule, Module, PinId, WireableModule},
     module_holder::PassiveModuleStore,
-    module_id::ModuleId,
+    module_id::ModuleAddress,
     pin_state::WireState,
 };
 
@@ -54,10 +54,10 @@ impl Default for Mcu {
 }
 
 impl Mcu {
-    pub fn new(queue: EventQueue) -> Self {
+    pub fn new(mut queue: EventQueue) -> Self {
         Self {
             reg_file: RegisterFile::new(),
-            io: IoController::new(),
+            io: IoController::new(queue.root_module_id(), &mut queue),
             sram: vec![0; SRAM_SIZE],
             flash: vec![0; FLASH_SIZE],
 
@@ -242,20 +242,24 @@ impl Mcu {
 
 impl Module for Mcu {
     #[inline]
-    fn module_id(&self) -> ModuleId {
-        self.io.module_id()
+    fn address(&self) -> ModuleAddress {
+        self.io.address()
     }
 
-    #[inline]
-    fn set_module_id(&mut self, module_id: ModuleId) {
-        self.io.set_module_id(module_id)
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue) {
+        self.io.handle_event(event, queue)
     }
-}
 
-impl EventReceiver for Mcu {
-    #[inline]
-    fn receive_event(&mut self, event: Event, queue: &mut EventQueue) {
-        self.io.receive_event(event, queue)
+    fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {
+        self.io.find(address)
+    }
+
+    fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module> {
+        self.io.find_mut(address)
+    }
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
     }
 }
 
@@ -280,11 +284,6 @@ impl WireableModule for Mcu {
     #[inline]
     fn set_pin(&mut self, queue: &mut EventQueue, id: PinId, data: WireState) {
         self.io.set_pin(queue, id, data)
-    }
-
-    #[inline]
-    fn get_pin_module(&self, id: PinId) -> Option<ModuleId> {
-        self.io.get_pin_module(id)
     }
 }
 

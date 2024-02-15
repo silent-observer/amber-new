@@ -24,6 +24,16 @@ impl Clock {
     }
 
     #[inline]
+    pub fn current_tick(&self) -> TickTimestamp {
+        self.current_tick
+    }
+
+    #[inline]
+    pub fn ticks_to_time(&self, t: TickTimestamp) -> Timestamp {
+        t * self.time_per_tick
+    }
+
+    #[inline]
     pub fn next_tick(&self) -> Timestamp {
         self.current_time + self.time_per_tick
     }

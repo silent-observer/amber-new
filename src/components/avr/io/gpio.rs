@@ -1,16 +1,15 @@
 use bitfield::{Bit, BitMut};
 
 use crate::{
-    clock::Timestamp,
-    events::{Event, EventData, EventQueue, EventReceiver},
+    events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
-    module_id::ModuleId,
+    module_id::ModuleAddress,
     pin_state::{InputPinState, WireState},
 };
 
 #[derive(Debug, Clone)]
 pub struct GpioBank {
-    module_id: ModuleId,
+    module_id: ModuleAddress,
     port_register: u8,
     ddr_register: u8,
 
@@ -19,9 +18,9 @@ pub struct GpioBank {
     readable_states: [InputPinState; 8],
 }
 impl GpioBank {
-    pub fn new() -> GpioBank {
+    pub fn new(module_id: ModuleAddress) -> GpioBank {
         GpioBank {
-            module_id: ModuleId::default(),
+            module_id,
             port_register: 0,
             ddr_register: 0,
             output_states: [WireState::Z; 8],
@@ -52,7 +51,7 @@ impl GpioBank {
     #[inline]
     fn set_output_state(&mut self, i: usize, state: WireState, queue: &mut EventQueue) {
         if self.output_states[i] != state {
-            queue.set_wire(self.module_id.with_event(i as u8), state);
+            queue.set_wire(self.module_id.with_pin(i as u8), state);
         }
         self.output_states[i] = state;
         self.input_states[i] = InputPinState::read_wire_state(state);
@@ -74,47 +73,52 @@ impl GpioBank {
 
 impl Module for GpioBank {
     #[inline]
-    fn module_id(&self) -> ModuleId {
+    fn address(&self) -> ModuleAddress {
         self.module_id
     }
 
-    #[inline]
-    fn set_module_id(&mut self, module_id: ModuleId) {
-        self.module_id = module_id
-    }
-}
-
-impl EventReceiver for GpioBank {
-    fn receive_event(&mut self, _event: Event, _queue: &mut EventQueue) {
+    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue) {
+        assert_eq!(event.receiver_id.event_port_id, 0);
         self.readable_states = self.input_states;
+    }
+
+    fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {
+        if address.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module> {
+        if address.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
     }
 }
 
 impl WireableModule for GpioBank {
-    fn get_pin(&self, queue: &EventQueue, id: PinId) -> WireState {
+    fn get_pin(&self, _queue: &EventQueue, id: PinId) -> WireState {
         self.output_states[id]
     }
 
     fn set_pin(&mut self, queue: &mut EventQueue, id: PinId, data: WireState) {
         self.input_states[id] = InputPinState::read_wire_state(data);
-        queue.fire_event_next_tick(Event {
-            receiver_id: self.module_id,
-            data: EventData::None,
+        queue.fire_event_next_tick(InternalEvent {
+            receiver_id: self.module_id.with_event_port(0),
         });
-    }
-
-    fn get_pin_module(&self, id: PinId) -> Option<ModuleId> {
-        if id < 8 {
-            Some(self.module_id.with_event(id as u8))
-        } else {
-            None
-        }
     }
 }
 
 impl DataModule for GpioBank {
     type PortType = u8;
-    fn read_port(&self, queue: &EventQueue, id: PortId) -> u8 {
+    fn read_port(&self, _queue: &EventQueue, id: PortId) -> u8 {
         match id {
             0 => self.read_pin(),
             1 => self.ddr_register,
