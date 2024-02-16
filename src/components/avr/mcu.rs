@@ -246,8 +246,8 @@ impl Module for Mcu {
         self.io.address()
     }
 
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue) {
-        self.io.handle_event(event, queue)
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {
+        self.io.handle_event(event, queue, t)
     }
 
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {

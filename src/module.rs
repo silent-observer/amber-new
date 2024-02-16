@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    clock::Timestamp,
+    clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module_holder::PassiveModuleStore,
     module_id::ModuleAddress,
@@ -13,7 +13,7 @@ pub type PinId = usize;
 
 pub trait Module: Debug {
     fn address(&self) -> ModuleAddress;
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue);
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp);
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;
     fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module>;
 

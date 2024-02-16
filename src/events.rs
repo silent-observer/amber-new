@@ -125,7 +125,7 @@ impl EventQueue {
                     self.internal_events.pop().unwrap();
                     let m = root.find_mut(e.receiver_id.module_address);
                     if let Some(m) = m {
-                        m.handle_event(e, self);
+                        m.handle_event(e, self, t);
                     } else {
                         panic!("Module not found: {:?}", e.receiver_id);
                     }

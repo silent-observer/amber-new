@@ -1,6 +1,7 @@
 use std::pin;
 
 use crate::{
+    clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_holder::PassiveModuleStore,
@@ -117,7 +118,7 @@ impl Module for IoController {
         self.module_id
     }
 
-    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue) {
+    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
         assert_eq!(event.receiver_id.event_port_id, 0);
         self.interrupt = true;
     }

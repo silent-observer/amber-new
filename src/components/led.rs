@@ -1,4 +1,5 @@
 use crate::{
+    clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module::{Module, PinId, WireableModule},
     module_id::ModuleAddress,
@@ -25,7 +26,7 @@ impl Module for Led {
         self.module_id
     }
 
-    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue) {
+    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
         panic!("LED can't handle events");
     }
 

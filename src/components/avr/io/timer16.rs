@@ -1,7 +1,7 @@
 use std::mem::transmute;
 
 use crate::{
-    clock::TickTimestamp,
+    clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_id::{EventPortAddress, ModuleAddress},
@@ -250,6 +250,24 @@ impl Timer16 {
                 receiver_id: self.interrupt_reciever,
             })
         }
+        let is_special_zero = match self.waveform_mode {
+            WaveformGenerationMode::Normal => false,
+            WaveformGenerationMode::Pwm8Bit
+            | WaveformGenerationMode::Pwm9Bit
+            | WaveformGenerationMode::Pwm10Bit => self.ocr[i] == 0,
+            WaveformGenerationMode::Ctc
+            | WaveformGenerationMode::FastPwm8Bit
+            | WaveformGenerationMode::FastPwm9Bit
+            | WaveformGenerationMode::FastPwm10Bit => false,
+            WaveformGenerationMode::PwmPhaseFreqIcr
+            | WaveformGenerationMode::PwmPhaseFreqOcrA
+            | WaveformGenerationMode::PwmPhaseIcr
+            | WaveformGenerationMode::PwmPhaseOcrA => self.ocr[i] == 0,
+            WaveformGenerationMode::CtcIcr
+            | WaveformGenerationMode::Reserved
+            | WaveformGenerationMode::FastPwmIcr
+            | WaveformGenerationMode::FastPwmOcrA => false,
+        };
         match self.compare_output_mode[i] {
             CompareOutputMode::Disabled => {}
             CompareOutputMode::Toggle => {
@@ -259,17 +277,29 @@ impl Timer16 {
                 );
                 self.pins[i] = !self.pins[i];
             }
-            CompareOutputMode::Clear => {
+            CompareOutputMode::Clear if self.upcounting || is_special_zero => {
                 if self.pins[i] {
                     queue.set_wire(self.module_id.with_pin(i as u8), WireState::Low);
                 }
                 self.pins[i] = false;
             }
-            CompareOutputMode::Set => {
+            CompareOutputMode::Clear => {
                 if !self.pins[i] {
                     queue.set_wire(self.module_id.with_pin(i as u8), WireState::High);
                 }
                 self.pins[i] = true;
+            }
+            CompareOutputMode::Set if self.upcounting || is_special_zero => {
+                if !self.pins[i] {
+                    queue.set_wire(self.module_id.with_pin(i as u8), WireState::High);
+                }
+                self.pins[i] = true;
+            }
+            CompareOutputMode::Set => {
+                if self.pins[i] {
+                    queue.set_wire(self.module_id.with_pin(i as u8), WireState::Low);
+                }
+                self.pins[i] = false;
             }
         }
     }
@@ -315,7 +345,7 @@ impl Timer16 {
             }
             self.last_write_t = timestamp;
         } else {
-            let new_counter = self.last_write_counter - ticks as u16;
+            let new_counter = self.last_write_counter as i64 - ticks;
             if ticks - 1 == self.last_write_counter as i64 {
                 match self.waveform_mode {
                     WaveformGenerationMode::Normal
@@ -373,13 +403,13 @@ impl Timer16 {
         }
     }
 
-    fn schedule_event(&mut self, queue: &mut EventQueue) {
+    fn schedule_event(&mut self, queue: &mut EventQueue, timestamp: TickTimestamp) {
         if self.clock_mode == ClockMode::Disabled {
             return;
         }
 
         let timer_ticks = self.timer_ticks_until_next_event();
-        let next_event = self.add_ticks(queue.clock.current_tick(), timer_ticks as i64);
+        let next_event = self.add_ticks(timestamp, timer_ticks as i64);
         queue.fire_event_at_ticks(
             InternalEvent {
                 receiver_id: self.module_id.with_event_port(0),
@@ -394,10 +424,10 @@ impl Module for Timer16 {
         self.module_id
     }
 
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue) {
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {
         assert_eq!(event.receiver_id.event_port_id, 0);
-        self.simulate(queue.clock.current_tick(), queue);
-        self.schedule_event(queue);
+        self.simulate(queue.clock.time_to_ticks(t), queue);
+        self.schedule_event(queue, queue.clock.time_to_ticks(t));
     }
 
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {
@@ -565,7 +595,7 @@ impl DataModule for Timer16 {
             }
             _ => panic!("Invalid port {}", id),
         }
-        self.schedule_event(queue);
+        self.schedule_event(queue, queue.clock.current_tick());
     }
 }
 
