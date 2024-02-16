@@ -118,7 +118,8 @@ impl Module for IoController {
     }
 
     fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue) {
-        panic!("No internal event for IoController: {:?}", event);
+        assert_eq!(event.receiver_id.event_port_id, 0);
+        self.interrupt = true;
     }
 
     fn find(&self, mut address: ModuleAddress) -> Option<&dyn Module> {
@@ -208,6 +209,20 @@ impl DataModule for IoController {
             0x2F..=0x31 => self.gpio[5].read_port(queue, id - 0x2F), // Port F
             0x32..=0x34 => self.gpio[6].read_port(queue, id - 0x32), // Port G
 
+            0x35 => todo!(),
+            0x36 => self.timer1.read_port(queue, Timer16::TIFR_PORT),
+            0x37 => todo!(),
+            0x38 => self.timer3.read_port(queue, Timer16::TIFR_PORT),
+            0x39 => self.timer4.read_port(queue, Timer16::TIFR_PORT),
+            0x3A => self.timer5.read_port(queue, Timer16::TIFR_PORT),
+
+            0x6E => todo!(),
+            0x6F => self.timer1.read_port(queue, Timer16::TIMSK_PORT),
+            0x70 => todo!(),
+            0x71 => self.timer3.read_port(queue, Timer16::TIMSK_PORT),
+            0x72 => self.timer4.read_port(queue, Timer16::TIMSK_PORT),
+            0x73 => self.timer5.read_port(queue, Timer16::TIMSK_PORT),
+
             0x80..=0x8F => self.timer1.read_port(queue, id - 0x80), // Timer 1
             0x90..=0x9F => self.timer3.read_port(queue, id - 0x90), // Timer 3
             0xA0..=0xAF => self.timer4.read_port(queue, id - 0xA0), // Timer 4
@@ -234,6 +249,20 @@ impl DataModule for IoController {
             0x2C..=0x2E => self.gpio[4].write_port(queue, id - 0x2C, data), // Port E
             0x2F..=0x31 => self.gpio[5].write_port(queue, id - 0x2F, data), // Port F
             0x32..=0x34 => self.gpio[6].write_port(queue, id - 0x32, data), // Port G
+
+            0x35 => todo!(),
+            0x36 => self.timer1.write_port(queue, Timer16::TIFR_PORT, data),
+            0x37 => todo!(),
+            0x38 => self.timer3.write_port(queue, Timer16::TIFR_PORT, data),
+            0x39 => self.timer4.write_port(queue, Timer16::TIFR_PORT, data),
+            0x3A => self.timer5.write_port(queue, Timer16::TIFR_PORT, data),
+
+            0x6E => todo!(),
+            0x6F => self.timer1.write_port(queue, Timer16::TIMSK_PORT, data),
+            0x70 => todo!(),
+            0x71 => self.timer3.write_port(queue, Timer16::TIMSK_PORT, data),
+            0x72 => self.timer4.write_port(queue, Timer16::TIMSK_PORT, data),
+            0x73 => self.timer5.write_port(queue, Timer16::TIMSK_PORT, data),
 
             0x80..=0x8F => self.timer1.write_port(queue, id - 0x80, data), // Timer 1
             0x90..=0x9F => self.timer3.write_port(queue, id - 0x90, data), // Timer 3
@@ -287,129 +316,129 @@ impl IoController {
             }
         }
 
-        // update(
-        //     0x0020,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer1.interrupt_flags.input_capture,
-        // );
-        // update(
-        //     0x0022,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer1.interrupt_flags.oc[0],
-        // );
-        // update(
-        //     0x0024,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer1.interrupt_flags.oc[1],
-        // );
-        // update(
-        //     0x0026,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer1.interrupt_flags.oc[2],
-        // );
-        // update(
-        //     0x0028,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer1.interrupt_flags.overflow,
-        // );
+        update(
+            0x0020,
+            &mut result,
+            &mut have_others,
+            &mut self.timer1.interrupt_flags.input_capture,
+        );
+        update(
+            0x0022,
+            &mut result,
+            &mut have_others,
+            &mut self.timer1.interrupt_flags.oc[0],
+        );
+        update(
+            0x0024,
+            &mut result,
+            &mut have_others,
+            &mut self.timer1.interrupt_flags.oc[1],
+        );
+        update(
+            0x0026,
+            &mut result,
+            &mut have_others,
+            &mut self.timer1.interrupt_flags.oc[2],
+        );
+        update(
+            0x0028,
+            &mut result,
+            &mut have_others,
+            &mut self.timer1.interrupt_flags.overflow,
+        );
 
-        // update(
-        //     0x003E,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer3.interrupt_flags.input_capture,
-        // );
-        // update(
-        //     0x0040,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer3.interrupt_flags.oc[0],
-        // );
-        // update(
-        //     0x0042,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer3.interrupt_flags.oc[1],
-        // );
-        // update(
-        //     0x0044,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer3.interrupt_flags.oc[2],
-        // );
-        // update(
-        //     0x0046,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer3.interrupt_flags.overflow,
-        // );
+        update(
+            0x003E,
+            &mut result,
+            &mut have_others,
+            &mut self.timer3.interrupt_flags.input_capture,
+        );
+        update(
+            0x0040,
+            &mut result,
+            &mut have_others,
+            &mut self.timer3.interrupt_flags.oc[0],
+        );
+        update(
+            0x0042,
+            &mut result,
+            &mut have_others,
+            &mut self.timer3.interrupt_flags.oc[1],
+        );
+        update(
+            0x0044,
+            &mut result,
+            &mut have_others,
+            &mut self.timer3.interrupt_flags.oc[2],
+        );
+        update(
+            0x0046,
+            &mut result,
+            &mut have_others,
+            &mut self.timer3.interrupt_flags.overflow,
+        );
 
-        // update(
-        //     0x0052,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer4.interrupt_flags.input_capture,
-        // );
-        // update(
-        //     0x0054,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer4.interrupt_flags.oc[0],
-        // );
-        // update(
-        //     0x0056,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer4.interrupt_flags.oc[1],
-        // );
-        // update(
-        //     0x0058,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer4.interrupt_flags.oc[2],
-        // );
-        // update(
-        //     0x005A,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer4.interrupt_flags.overflow,
-        // );
+        update(
+            0x0052,
+            &mut result,
+            &mut have_others,
+            &mut self.timer4.interrupt_flags.input_capture,
+        );
+        update(
+            0x0054,
+            &mut result,
+            &mut have_others,
+            &mut self.timer4.interrupt_flags.oc[0],
+        );
+        update(
+            0x0056,
+            &mut result,
+            &mut have_others,
+            &mut self.timer4.interrupt_flags.oc[1],
+        );
+        update(
+            0x0058,
+            &mut result,
+            &mut have_others,
+            &mut self.timer4.interrupt_flags.oc[2],
+        );
+        update(
+            0x005A,
+            &mut result,
+            &mut have_others,
+            &mut self.timer4.interrupt_flags.overflow,
+        );
 
-        // update(
-        //     0x005C,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer5.interrupt_flags.input_capture,
-        // );
-        // update(
-        //     0x005E,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer5.interrupt_flags.oc[0],
-        // );
-        // update(
-        //     0x0060,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer5.interrupt_flags.oc[1],
-        // );
-        // update(
-        //     0x0062,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer5.interrupt_flags.oc[2],
-        // );
-        // update(
-        //     0x0064,
-        //     &mut result,
-        //     &mut have_others,
-        //     &mut self.timer5.interrupt_flags.overflow,
-        // );
+        update(
+            0x005C,
+            &mut result,
+            &mut have_others,
+            &mut self.timer5.interrupt_flags.input_capture,
+        );
+        update(
+            0x005E,
+            &mut result,
+            &mut have_others,
+            &mut self.timer5.interrupt_flags.oc[0],
+        );
+        update(
+            0x0060,
+            &mut result,
+            &mut have_others,
+            &mut self.timer5.interrupt_flags.oc[1],
+        );
+        update(
+            0x0062,
+            &mut result,
+            &mut have_others,
+            &mut self.timer5.interrupt_flags.oc[2],
+        );
+        update(
+            0x0064,
+            &mut result,
+            &mut have_others,
+            &mut self.timer5.interrupt_flags.overflow,
+        );
 
         if !have_others {
             self.interrupt = false;

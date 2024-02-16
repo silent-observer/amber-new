@@ -1,3 +1,5 @@
+use std::cmp::Reverse;
+
 use kanal::Receiver;
 use priority_queue::PriorityQueue;
 use smallvec::SmallVec;
@@ -31,8 +33,8 @@ pub struct PinRedirect {
 #[derive(Debug, Clone)]
 pub struct EventQueue {
     pub clock: Clock,
-    internal_events: PriorityQueue<InternalEvent, Timestamp>,
-    wire_events: PriorityQueue<WireChangeEvent, Timestamp>,
+    internal_events: PriorityQueue<InternalEvent, Reverse<Timestamp>>,
+    wire_events: PriorityQueue<WireChangeEvent, Reverse<Timestamp>>,
     root_prefix: u8,
     receiver: Receiver<(WireChangeEvent, Timestamp)>,
 
@@ -64,7 +66,7 @@ impl EventQueue {
     pub fn fire_event(&mut self, mut event: InternalEvent, t: Timestamp) {
         assert!(event.receiver_id.module_address.current() == self.root_prefix);
         event.receiver_id.module_address.advance();
-        self.internal_events.push(event, t);
+        self.internal_events.push(event, Reverse(t));
     }
 
     #[inline]
@@ -94,7 +96,7 @@ impl EventQueue {
             };
             if reader_id.module_address.current() == self.root_prefix {
                 e.receiver_id.module_address.advance();
-                self.wire_events.push(e, self.clock.current_time());
+                self.wire_events.push(e, Reverse(self.clock.current_time()));
             } else {
                 InboxTable::send(e, self.clock.current_time());
             }
@@ -113,12 +115,12 @@ impl EventQueue {
                         receiver_id: reader,
                         state: e.state,
                     },
-                    t,
+                    Reverse(t),
                 );
             }
         }
         loop {
-            if let Some((&e, &t)) = self.internal_events.peek() {
+            if let Some((&e, &Reverse(t))) = self.internal_events.peek() {
                 if t <= self.clock.current_time() {
                     self.internal_events.pop().unwrap();
                     let m = root.find_mut(e.receiver_id.module_address);
@@ -130,7 +132,7 @@ impl EventQueue {
                     continue;
                 }
             }
-            if let Some((&e, &t)) = self.wire_events.peek() {
+            if let Some((&e, &Reverse(t))) = self.wire_events.peek() {
                 if t <= self.clock.current_time() {
                     self.wire_events.pop().unwrap();
 

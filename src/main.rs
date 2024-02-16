@@ -23,7 +23,7 @@ fn main() {
     let mut wt = WiringTable::new();
 
     let event_queue = EventQueue::new(1, 0, it.add_listener(0));
-    let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex("./hex/blink_timer.hex");
+    let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex("./hex/blink_timer_interrupt.hex");
     let led = PinAddress::from(mcu.module_store().add_module(|id| Led::new(id)), 0);
 
     wt.add_wire(PinAddress::from(&mcu, 15), vec![led]);

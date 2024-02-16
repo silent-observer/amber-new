@@ -88,6 +88,9 @@ pub struct Timer16 {
 }
 
 impl Timer16 {
+    pub const TIMSK_PORT: PortId = 16;
+    pub const TIFR_PORT: PortId = 17;
+
     pub fn new(module_id: ModuleAddress, interrupt_reciever: EventPortAddress) -> Timer16 {
         Timer16 {
             last_write_t: 0,
@@ -141,6 +144,27 @@ impl Timer16 {
         }
     }
 
+    fn overflow_value(&self) -> u16 {
+        match self.waveform_mode {
+            WaveformGenerationMode::Normal => 0xFFFF,
+            WaveformGenerationMode::Pwm8Bit
+            | WaveformGenerationMode::Pwm9Bit
+            | WaveformGenerationMode::Pwm10Bit => 0,
+            WaveformGenerationMode::Ctc => 0xFFFF,
+            WaveformGenerationMode::FastPwm8Bit => 0x00FF,
+            WaveformGenerationMode::FastPwm9Bit => 0x01FF,
+            WaveformGenerationMode::FastPwm10Bit => 0x03FF,
+            WaveformGenerationMode::PwmPhaseFreqIcr
+            | WaveformGenerationMode::PwmPhaseFreqOcrA
+            | WaveformGenerationMode::PwmPhaseIcr
+            | WaveformGenerationMode::PwmPhaseOcrA => 0,
+            WaveformGenerationMode::CtcIcr => 0xFFFF,
+            WaveformGenerationMode::Reserved => todo!(),
+            WaveformGenerationMode::FastPwmIcr => todo!(),
+            WaveformGenerationMode::FastPwmOcrA => self.ocr[0],
+        }
+    }
+
     fn is_oc_active(&self, i: usize) -> bool {
         self.compare_output_mode[i] != CompareOutputMode::Disabled || self.interrupt_masks.oc[i]
     }
@@ -151,10 +175,19 @@ impl Timer16 {
             let ticks_to_top = top - self.last_write_counter + 1;
             let mut min_ticks = ticks_to_top;
             for i in 0..3 {
-                if self.is_oc_active(i) & (self.last_write_counter < self.ocr[i]) {
+                if self.is_oc_active(i) && (self.last_write_counter < self.ocr[i]) {
                     let ticks_to_ocr = self.ocr[i] - self.last_write_counter;
                     if ticks_to_ocr < min_ticks {
                         min_ticks = ticks_to_ocr;
+                    }
+                }
+            }
+            if self.interrupt_masks.overflow {
+                let overflow_value = self.overflow_value();
+                if self.last_write_counter < overflow_value {
+                    let ticks_to_overflow = overflow_value - self.last_write_counter;
+                    if ticks_to_overflow < min_ticks {
+                        min_ticks = ticks_to_overflow;
                     }
                 }
             }
@@ -167,6 +200,15 @@ impl Timer16 {
                     let ticks_to_ocr = self.last_write_counter - self.ocr[i];
                     if ticks_to_ocr < min_ticks {
                         min_ticks = ticks_to_ocr;
+                    }
+                }
+            }
+            if self.interrupt_masks.overflow {
+                let overflow_value = self.overflow_value();
+                if self.last_write_counter > overflow_value {
+                    let ticks_to_overflow = self.last_write_counter - overflow_value;
+                    if ticks_to_overflow < min_ticks {
+                        min_ticks = ticks_to_overflow;
                     }
                 }
             }
@@ -311,6 +353,12 @@ impl Timer16 {
                 self.trigger_oc(i, queue);
             }
         }
+        if self.interrupt_masks.overflow && self.overflow_value() == self.last_write_counter {
+            self.interrupt_flags.overflow = true;
+            queue.fire_event_now(InternalEvent {
+                receiver_id: self.interrupt_reciever,
+            })
+        }
     }
 
     fn calculate_counter(&self, timestamp: TickTimestamp) -> u16 {
@@ -415,6 +463,26 @@ impl DataModule for Timer16 {
             13 => (self.ocr[2] >> 8) as u8,   // OCRnCH
 
             14 | 15 => 0, // Reserved
+
+            Self::TIMSK_PORT => {
+                let icie = self.interrupt_masks.input_capture as u8;
+                let ociea = self.interrupt_masks.oc[0] as u8;
+                let ocieb = self.interrupt_masks.oc[1] as u8;
+                let ociec = self.interrupt_masks.oc[2] as u8;
+                let toie = self.interrupt_masks.overflow as u8;
+
+                icie << 5 | ociea << 1 | ocieb << 2 | ociec << 3 | toie
+            }
+
+            Self::TIFR_PORT => {
+                let icf = self.interrupt_flags.input_capture as u8;
+                let ocfa = self.interrupt_flags.oc[0] as u8;
+                let ocfb = self.interrupt_flags.oc[1] as u8;
+                let ocfc = self.interrupt_flags.oc[2] as u8;
+                let tof = self.interrupt_flags.overflow as u8;
+
+                icf << 5 | ocfa << 1 | ocfb << 2 | ocfc << 3 | tof
+            }
             _ => panic!("Invalid port {}", id),
         }
     }
@@ -479,6 +547,22 @@ impl DataModule for Timer16 {
             13 => self.ocr[2] = (self.ocr[2] & 0x00FF) | (data as u16) << 8, // OCRnCH
 
             14 | 15 => {} // Reserved
+
+            Self::TIMSK_PORT => {
+                self.interrupt_masks.input_capture = (data & 0x20) != 0;
+                self.interrupt_masks.oc[0] = (data & 0x02) != 0;
+                self.interrupt_masks.oc[1] = (data & 0x04) != 0;
+                self.interrupt_masks.oc[2] = (data & 0x08) != 0;
+                self.interrupt_masks.overflow = (data & 0x01) != 0;
+            }
+
+            Self::TIFR_PORT => {
+                self.interrupt_flags.input_capture &= (data & 0x20) == 0; // Clear if 1
+                self.interrupt_flags.oc[0] &= (data & 0x02) == 0;
+                self.interrupt_flags.oc[1] &= (data & 0x04) == 0;
+                self.interrupt_flags.oc[2] &= (data & 0x08) == 0;
+                self.interrupt_flags.overflow &= (data & 0x01) == 0;
+            }
             _ => panic!("Invalid port {}", id),
         }
         self.schedule_event(queue);
