@@ -10,6 +10,11 @@ const Z_REG: u16 = 30;
 
 impl Mcu {
     pub fn instr_rjmp(&mut self, opcode: u16) -> u8 {
+        if opcode == 0xCFFF {
+            self.halted = true;
+            return 2;
+        }
+
         let k = opcode & 0x0FFF;
 
         if k.bit(11) {
@@ -171,6 +176,7 @@ impl Mcu {
     }
 
     pub fn execute_interrupt(&mut self, addr: u16) -> u8 {
+        self.halted = false;
         self.pc -= 1;
         self.push_pc();
         self.set_pc(addr as u32);

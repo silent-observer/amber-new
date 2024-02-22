@@ -50,28 +50,42 @@ impl FromStr for HexLine {
     }
 }
 
+/// Reads flash from Intel .hex file
+pub fn read_flash_hex(filename: &str) -> Vec<u16> {
+    let mut flash = vec![0; 1024];
+    let file = File::open(filename).unwrap();
+    let lines = BufReader::new(file).lines();
+    for line in lines {
+        let l = line.unwrap();
+        if l.starts_with(':') {
+            let data: HexLine = l.parse().unwrap();
+            match data.record_type {
+                0 => {
+                    let mut i = 0;
+                    while i < data.size as usize {
+                        let x = data.data[i] as u16 | (data.data[i + 1] as u16) << 8;
+                        let addr = (data.addr as usize + i) >> 1;
+                        if addr >= flash.len() {
+                            flash.resize(addr + 1, 0);
+                        }
+                        flash[addr] = x;
+                        i += 2;
+                    }
+                }
+                1 => break,
+                _ => panic!("Invalid record type"),
+            }
+        }
+    }
+    flash
+}
+
 impl Mcu {
     /// Reads flash from Intel .hex file
     pub fn load_flash_hex(&mut self, filename: &str) {
-        let file = File::open(filename).unwrap();
-        let lines = BufReader::new(file).lines();
-        for line in lines {
-            let l = line.unwrap();
-            if l.starts_with(':') {
-                let data: HexLine = l.parse().unwrap();
-                match data.record_type {
-                    0 => {
-                        let mut i = 0;
-                        while i < data.size as usize {
-                            let x = data.data[i] as u16 | (data.data[i + 1] as u16) << 8;
-                            self.write_flash((data.addr as u32 + i as u32) >> 1, x);
-                            i += 2;
-                        }
-                    }
-                    1 => break,
-                    _ => panic!("Invalid record type"),
-                }
-            }
+        let flash = read_flash_hex(filename);
+        for (i, x) in flash.iter().enumerate() {
+            self.write_flash(i as u32, *x);
         }
     }
 

@@ -11,6 +11,7 @@ use crate::{components::avr::mcu, module_id::PinAddress};
 pub mod clock;
 pub mod components;
 pub mod events;
+mod jit;
 pub mod module;
 pub mod module_holder;
 pub mod module_id;
@@ -23,7 +24,7 @@ fn main() {
     let mut wt = WiringTable::new();
 
     let event_queue = EventQueue::new(1, 0, it.add_listener(0));
-    let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex("./hex/blink_pwm.hex");
+    let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex("./hex/sort.hex");
     let led = PinAddress::from(mcu.module_store().add_module(|id| Led::new(id)), 0);
 
     wt.add_wire(PinAddress::from(&mcu, 15), vec![led]);
@@ -35,9 +36,9 @@ fn main() {
     const SIMULATION_SECONDS: i64 = 10;
     const FREQ: i64 = 16_000_000;
     const CYCLES: i64 = SIMULATION_SECONDS * FREQ;
-    mcu.run_until_time(CYCLES);
+    let model_time = mcu.run_until_time(CYCLES);
     let simulation_time = start.elapsed();
-    let model_time = Duration::from_secs(SIMULATION_SECONDS as u64);
+    let model_time = Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
     println!(
         "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
         model_time.as_millis(),
