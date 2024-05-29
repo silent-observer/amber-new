@@ -1,7 +1,7 @@
 use bitfield::{Bit, BitMut};
 
 use crate::{
-    clock::Timestamp,
+    clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_id::ModuleAddress,
@@ -78,7 +78,7 @@ impl Module for GpioBank {
         self.module_id
     }
 
-    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
+    fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue, _t: TickTimestamp) {
         assert_eq!(event.receiver_id.event_port_id, 0);
         self.readable_states = self.input_states;
     }

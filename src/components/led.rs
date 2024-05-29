@@ -1,5 +1,5 @@
 use crate::{
-    clock::Timestamp,
+    clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{Module, PinId, WireableModule},
     module_id::ModuleAddress,
@@ -26,7 +26,7 @@ impl Module for Led {
         self.module_id
     }
 
-    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
+    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: TickTimestamp) {
         panic!("LED can't handle events");
     }
 
@@ -60,14 +60,18 @@ impl WireableModule for Led {
         match InputPinState::read_wire_state(data) {
             InputPinState::High => {
                 if !self.state {
-                    println!("{}: LED ON: {}", queue.clock.current_time(), self.module_id);
+                    println!(
+                        "{:?}: LED ON: {}",
+                        queue.clock.current_time(),
+                        self.module_id
+                    );
                 }
                 self.state = true;
             }
             InputPinState::Low => {
                 if self.state {
                     println!(
-                        "{}: LED OFF: {}",
+                        "{:?}: LED OFF: {}",
                         queue.clock.current_time(),
                         self.module_id
                     );

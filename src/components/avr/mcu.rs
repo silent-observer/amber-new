@@ -2,6 +2,7 @@ mod add_sub;
 mod bitops;
 mod branches;
 pub mod hex;
+pub mod jit;
 mod logical;
 mod memory_controller;
 mod mul;
@@ -10,7 +11,7 @@ mod transfer;
 use bitfield::Bit;
 
 use crate::{
-    clock::Timestamp,
+    clock::{TickTimestamp, TimeDiff, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{ActiveModule, Module, PinId, WireableModule},
     module_holder::PassiveModuleStore,
@@ -50,7 +51,7 @@ pub struct Mcu {
 impl Default for Mcu {
     fn default() -> Self {
         let (_, r) = kanal::bounded(0);
-        let queue = EventQueue::new(1, 0, r);
+        let queue = EventQueue::new(TimeDiff(1), 0, r);
         Mcu::new(queue)
     }
 }
@@ -253,7 +254,7 @@ impl Module for Mcu {
         self.io.address()
     }
 
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: TickTimestamp) {
         self.io.handle_event(event, queue, t)
     }
 
@@ -271,14 +272,14 @@ impl Module for Mcu {
 }
 
 impl ActiveModule for Mcu {
-    fn run_until_time(&mut self, t: Timestamp) -> Timestamp {
-        while self.queue.clock.current_time() < t {
+    fn run_until_time(&mut self, t: TickTimestamp) -> TickTimestamp {
+        while self.queue.clock.current_tick() < t {
             self.step();
             if self.halted && self.queue.is_empty() {
                 break;
             }
         }
-        self.queue.clock.current_time()
+        self.queue.clock.current_tick()
     }
 
     fn module_store(&mut self) -> &mut PassiveModuleStore {

@@ -13,7 +13,7 @@ pub type PinId = usize;
 
 pub trait Module: Debug {
     fn address(&self) -> ModuleAddress;
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp);
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: TickTimestamp);
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;
     fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module>;
 
@@ -32,6 +32,6 @@ pub trait WireableModule: Module {
 }
 
 pub trait ActiveModule: Module {
-    fn run_until_time(&mut self, t: Timestamp) -> Timestamp;
+    fn run_until_time(&mut self, t: TickTimestamp) -> TickTimestamp;
     fn module_store(&mut self) -> &mut PassiveModuleStore;
 }

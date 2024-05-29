@@ -32,9 +32,10 @@ pub struct PinRedirect {
 
 #[derive(Debug, Clone)]
 pub struct EventQueue {
+    pub next_interrupt: TickTimestamp,
     pub clock: Clock,
-    internal_events: PriorityQueue<InternalEvent, Reverse<Timestamp>>,
-    wire_events: PriorityQueue<WireChangeEvent, Reverse<Timestamp>>,
+    internal_events: PriorityQueue<InternalEvent, Reverse<TickTimestamp>>,
+    wire_events: PriorityQueue<WireChangeEvent, Reverse<TickTimestamp>>,
     root_prefix: u8,
     receiver: Receiver<(WireChangeEvent, Timestamp)>,
 
@@ -48,6 +49,7 @@ impl EventQueue {
         receiver: Receiver<(WireChangeEvent, Timestamp)>,
     ) -> Self {
         Self {
+            next_interrupt: TickTimestamp::MAX,
             clock: Clock::new(ticks_per_cycle),
             internal_events: PriorityQueue::new(),
             wire_events: PriorityQueue::new(),
@@ -63,7 +65,7 @@ impl EventQueue {
     }
 
     #[inline]
-    pub fn fire_event(&mut self, mut event: InternalEvent, t: Timestamp) {
+    pub fn fire_event(&mut self, mut event: InternalEvent, t: TickTimestamp) {
         assert!(event.receiver_id.module_address.current() == self.root_prefix);
         event.receiver_id.module_address.advance();
         self.internal_events.push(event, Reverse(t));
@@ -71,17 +73,12 @@ impl EventQueue {
 
     #[inline]
     pub fn fire_event_now(&mut self, event: InternalEvent) {
-        self.fire_event(event, self.clock.current_time());
+        self.fire_event(event, self.clock.current_tick());
     }
 
     #[inline]
     pub fn fire_event_next_tick(&mut self, event: InternalEvent) {
-        self.fire_event(event, self.clock.next_tick());
-    }
-
-    #[inline]
-    pub fn fire_event_at_ticks(&mut self, event: InternalEvent, ticks: TickTimestamp) {
-        self.fire_event(event, self.clock.ticks_to_time(ticks));
+        self.fire_event(event, self.clock.current_tick() + 1);
     }
 
     #[inline]
@@ -96,7 +93,17 @@ impl EventQueue {
             };
             if reader_id.module_address.current() == self.root_prefix {
                 e.receiver_id.module_address.advance();
-                self.wire_events.push(e, Reverse(self.clock.current_time()));
+                self.wire_events.push(e, Reverse(self.clock.current_tick()));
+                if self
+                    .wire_events
+                    .peek()
+                    .map_or(false, |(_, &Reverse(t_queued))| {
+                        t_queued < self.next_interrupt
+                    })
+                {
+                    let (_, &Reverse(t_queued)) = self.wire_events.peek().unwrap();
+                    self.next_interrupt = t_queued;
+                }
             } else {
                 InboxTable::send(e, self.clock.current_time());
             }
@@ -115,13 +122,14 @@ impl EventQueue {
                         receiver_id: reader,
                         state: e.state,
                     },
-                    Reverse(t),
+                    Reverse(self.clock.time_to_ticks(t)),
                 );
             }
         }
         loop {
+            let mut min_t = TickTimestamp::MAX;
             if let Some((&e, &Reverse(t))) = self.internal_events.peek() {
-                if t <= self.clock.current_time() {
+                if t <= self.clock.current_tick() {
                     self.internal_events.pop().unwrap();
                     let m = root.find_mut(e.receiver_id.module_address);
                     if let Some(m) = m {
@@ -131,9 +139,12 @@ impl EventQueue {
                     }
                     continue;
                 }
+                if t < min_t {
+                    min_t = t;
+                }
             }
             if let Some((&e, &Reverse(t))) = self.wire_events.peek() {
-                if t <= self.clock.current_time() {
+                if t <= self.clock.current_tick() {
                     self.wire_events.pop().unwrap();
 
                     let m = root.find_mut(e.receiver_id.module_address);
@@ -149,7 +160,11 @@ impl EventQueue {
                     }
                     continue;
                 }
+                if t < min_t {
+                    min_t = t;
+                }
             }
+            self.next_interrupt = min_t;
             break;
         }
     }
@@ -171,7 +186,7 @@ impl EventQueue {
         let t2 = self.internal_events.peek().map(|(_, &Reverse(t))| t);
         let t = t1.min(t2);
         if let Some(t) = t {
-            let ticks = self.clock.time_to_ticks(t) - self.clock.current_tick();
+            let ticks = t - self.clock.current_tick();
             self.clock.advance(ticks);
         } else {
             self.clock.advance(1000);

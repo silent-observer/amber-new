@@ -5,8 +5,9 @@ use bitvec::prelude::*;
 
 use crate::jit::instructions::{Instruction, InstructionKind};
 
-use super::super::bit_helpers::{
+use crate::components::avr::bit_helpers::{
     bit_field_combined, get_d_field, get_io5, get_io6, get_k6, get_k8, get_r_field, get_rd_fields,
+    is_two_word,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,7 +107,7 @@ impl From<AvrInstructionType> for InstructionKind {
     }
 }
 
-type Inst = Instruction<AvrInstructionType>;
+pub type Inst = Instruction<AvrInstructionType>;
 
 pub fn decode(flash: &[u16], addr: usize) -> (Inst, i32) {
     let opcode = flash[addr];
@@ -269,7 +270,6 @@ pub fn decode(flash: &[u16], addr: usize) -> (Inst, i32) {
         | AvrInstructionType::Sbc
         | AvrInstructionType::Cp
         | AvrInstructionType::Cpc
-        | AvrInstructionType::Cpse
         | AvrInstructionType::And
         | AvrInstructionType::Or
         | AvrInstructionType::Eor
@@ -323,19 +323,13 @@ pub fn decode(flash: &[u16], addr: usize) -> (Inst, i32) {
             let b = bit_field_combined(opcode, &[6..=4]);
             inst.with_field(b)
         }
-        AvrInstructionType::Bst
-        | AvrInstructionType::Bld
-        | AvrInstructionType::Sbrc
-        | AvrInstructionType::Sbrs => {
+        AvrInstructionType::Bst | AvrInstructionType::Bld => {
             let d = get_d_field(opcode, 5);
             let b = opcode & 0x0007;
             inst.with_field(d).with_field(b)
         }
 
-        AvrInstructionType::Sbi
-        | AvrInstructionType::Cbi
-        | AvrInstructionType::Sbic
-        | AvrInstructionType::Sbis => {
+        AvrInstructionType::Sbi | AvrInstructionType::Cbi => {
             let io = get_io5(opcode) as u16;
             let b = opcode & 0x0007;
             inst.with_field(io).with_field(b)
@@ -373,7 +367,7 @@ pub fn decode(flash: &[u16], addr: usize) -> (Inst, i32) {
         AvrInstructionType::Ldd | AvrInstructionType::Std => {
             let d = get_d_field(opcode, 5);
             let q = bit_field_combined(opcode, &[13..=13, 11..=10, 2..=0]);
-            let addr_base = if opcode.bit(3) { 28 } else { 30 };
+            let addr_base = if opcode.bit(3) { 1 } else { 0 };
             inst.with_field(d).with_field(q).with_field(addr_base)
         }
 
@@ -397,6 +391,29 @@ pub fn decode(flash: &[u16], addr: usize) -> (Inst, i32) {
             let io = get_io6(opcode) as u16;
             let d = get_d_field(opcode, 5);
             inst.with_field(io).with_field(d)
+        }
+
+        AvrInstructionType::Cpse => {
+            let (r, d) = get_rd_fields(opcode, 5);
+            let next_opcode = flash[addr + 1];
+            let skip_length = if is_two_word(next_opcode) { 2 } else { 1 };
+            inst.with_field(r).with_field(d).with_field(skip_length)
+        }
+
+        AvrInstructionType::Sbrc | AvrInstructionType::Sbrs => {
+            let d = get_d_field(opcode, 5);
+            let b = opcode & 0x0007;
+            let next_opcode = flash[addr + 1];
+            let skip_length = if is_two_word(next_opcode) { 2 } else { 1 };
+            inst.with_field(d).with_field(b).with_field(skip_length)
+        }
+
+        AvrInstructionType::Sbic | AvrInstructionType::Sbis => {
+            let io = get_io5(opcode) as u16;
+            let b = opcode & 0x0007;
+            let next_opcode = flash[addr + 1];
+            let skip_length = if is_two_word(next_opcode) { 2 } else { 1 };
+            inst.with_field(io).with_field(b).with_field(skip_length)
         }
 
         AvrInstructionType::Spm => todo!(),
@@ -455,6 +472,7 @@ impl Inst {
         matches!(
             self.kind,
             AvrInstructionType::Jmp
+                | AvrInstructionType::Call
                 | AvrInstructionType::Rjmp
                 | AvrInstructionType::Ijmp
                 | AvrInstructionType::Eijmp

@@ -1,3 +1,4 @@
+#[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct RegisterFile {
     pub regs: [u8; 32],

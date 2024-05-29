@@ -93,7 +93,7 @@ impl Timer16 {
 
     pub fn new(module_id: ModuleAddress, interrupt_reciever: EventPortAddress) -> Timer16 {
         Timer16 {
-            last_write_t: 0,
+            last_write_t: TickTimestamp(0),
             last_write_counter: 0,
 
             module_id,
@@ -231,7 +231,7 @@ impl Timer16 {
 
     fn ticks_up_to(&self, timestamp: TickTimestamp) -> i64 {
         let shift = self.prescaler_shift();
-        (timestamp >> shift) - (self.last_write_t >> shift)
+        (timestamp.0 >> shift) - (self.last_write_t.0 >> shift)
     }
 
     fn add_ticks(&self, timestamp: TickTimestamp, timer_ticks: i64) -> TickTimestamp {
@@ -240,7 +240,7 @@ impl Timer16 {
         }
 
         let shift = self.prescaler_shift();
-        ((timestamp >> shift) + timer_ticks) << shift
+        TickTimestamp(((timestamp.0 >> shift) + timer_ticks) << shift)
     }
 
     fn trigger_oc(&mut self, i: usize, queue: &mut EventQueue) {
@@ -410,7 +410,7 @@ impl Timer16 {
 
         let timer_ticks = self.timer_ticks_until_next_event();
         let next_event = self.add_ticks(timestamp, timer_ticks as i64);
-        queue.fire_event_at_ticks(
+        queue.fire_event(
             InternalEvent {
                 receiver_id: self.module_id.with_event_port(0),
             },
@@ -424,10 +424,10 @@ impl Module for Timer16 {
         self.module_id
     }
 
-    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {
+    fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: TickTimestamp) {
         assert_eq!(event.receiver_id.event_port_id, 0);
-        self.simulate(queue.clock.time_to_ticks(t), queue);
-        self.schedule_event(queue, queue.clock.time_to_ticks(t));
+        self.simulate(t, queue);
+        self.schedule_event(queue, t);
     }
 
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {

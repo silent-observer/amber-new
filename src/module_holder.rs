@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::{
-    clock::Timestamp,
+    clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{Module, WireableModule},
     module_id::ModuleAddress,
@@ -39,7 +39,7 @@ impl Module for PassiveModuleStore {
         self.module_id
     }
 
-    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
+    fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: TickTimestamp) {
         panic!("Cannot send event to passive module store");
     }
 
