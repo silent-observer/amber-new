@@ -161,4 +161,20 @@ impl EventQueue {
     pub fn set_multiplexer_flag(&mut self, pin: PinAddress, flag: bool) {
         self.multiplexing_table.set_flag(pin, flag)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.internal_events.is_empty() && self.wire_events.is_empty()
+    }
+
+    pub fn skip_to_event(&mut self) {
+        let t1 = self.wire_events.peek().map(|(_, &Reverse(t))| t);
+        let t2 = self.internal_events.peek().map(|(_, &Reverse(t))| t);
+        let t = t1.min(t2);
+        if let Some(t) = t {
+            let ticks = self.clock.time_to_ticks(t) - self.clock.current_tick();
+            self.clock.advance(ticks);
+        } else {
+            self.clock.advance(1000);
+        }
+    }
 }

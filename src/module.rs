@@ -32,6 +32,6 @@ pub trait WireableModule: Module {
 }
 
 pub trait ActiveModule: Module {
-    fn run_until_time(&mut self, t: Timestamp);
+    fn run_until_time(&mut self, t: Timestamp) -> Timestamp;
     fn module_store(&mut self) -> &mut PassiveModuleStore;
 }
