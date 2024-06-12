@@ -84,6 +84,22 @@ impl Mcu {
         self.sreg.set_h(!rd3 && rr3 || rr3 && r3 || r3 && !rd3);
     }
 
+    fn status_sbc(&mut self, rd: u8, rr: u8, r: u8) {
+        let rd7 = rd.bit(7);
+        let rr7 = rr.bit(7);
+        let r7 = r.bit(7);
+        let rd3 = rd.bit(3);
+        let rr3 = rr.bit(3);
+        let r3 = r.bit(3);
+
+        self.sreg.set_c(!rd7 && rr7 || rr7 && r7 || r7 && !rd7);
+        self.sreg.set_z(r == 0x00 && self.sreg.z());
+        self.sreg.set_n(r7);
+        self.sreg.set_v(rd7 && !rr7 && !r7 || !rd7 && rr7 && r7);
+        self.sreg.set_s(self.sreg.n() ^ self.sreg.v());
+        self.sreg.set_h(!rd3 && rr3 || rr3 && r3 || r3 && !rd3);
+    }
+
     pub fn instr_sub(&mut self, opcode: u16) -> u8 {
         let (r, d) = get_rd_fields(opcode, 5);
         let rr = self.read_register(r);
@@ -117,7 +133,7 @@ impl Mcu {
         let result = rd.wrapping_sub(rr).wrapping_sub(self.sreg.c() as u8);
 
         self.write_register(d, result);
-        self.status_sub(rd, rr, result);
+        self.status_sbc(rd, rr, result);
 
         self.pc += 1;
         1
@@ -130,7 +146,7 @@ impl Mcu {
         let result = rd.wrapping_sub(k).wrapping_sub(self.sreg.c() as u8);
 
         self.write_register(d, result);
-        self.status_sub(rd, k, result);
+        self.status_sbc(rd, k, result);
 
         self.pc += 1;
         1
@@ -219,7 +235,7 @@ impl Mcu {
         let rd = self.read_register(d);
         let result = rd.wrapping_sub(rr).wrapping_sub(self.sreg.c() as u8);
 
-        self.status_sub(rd, rr, result);
+        self.status_sbc(rd, rr, result);
 
         self.pc += 1;
         1
