@@ -35,9 +35,9 @@ fn main() {
     const SIMULATION_SECONDS: i64 = 10;
     const FREQ: i64 = 16_000_000;
     const CYCLES: i64 = SIMULATION_SECONDS * FREQ;
-    mcu.run_until_time(CYCLES);
+    let model_time = mcu.run_until_time(CYCLES);
     let simulation_time = start.elapsed();
-    let model_time = Duration::from_secs(SIMULATION_SECONDS as u64);
+    let model_time = Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
     println!(
         "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
         model_time.as_millis(),

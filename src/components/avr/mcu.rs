@@ -42,6 +42,8 @@ pub struct Mcu {
     rampz: u8,
     eind: u8,
 
+    halted: bool,
+
     queue: EventQueue,
 }
 
@@ -66,6 +68,7 @@ impl Mcu {
             rampz: 0,
             eind: 0,
             sreg: StatusRegister(0),
+            halted: false,
 
             queue,
         }
@@ -80,9 +83,13 @@ impl Mcu {
             }
         }
 
-        let opcode: u16 = self.read_at_pc_offset(0);
-        let ticks = self.execute(opcode);
-        self.queue.clock.advance(ticks as i64);
+        if self.halted {
+            self.queue.skip_to_event();
+        } else {
+            let opcode: u16 = self.read_at_pc_offset(0);
+            let ticks = self.execute(opcode);
+            self.queue.clock.advance(ticks as i64);
+        }
     }
 
     /// Executes an opcode and returns number of cycles.
@@ -264,10 +271,14 @@ impl Module for Mcu {
 }
 
 impl ActiveModule for Mcu {
-    fn run_until_time(&mut self, t: Timestamp) {
+    fn run_until_time(&mut self, t: Timestamp) -> Timestamp {
         while self.queue.clock.current_time() < t {
             self.step();
+            if self.halted && self.queue.is_empty() {
+                break;
+            }
         }
+        self.queue.clock.current_time()
     }
 
     fn module_store(&mut self) -> &mut PassiveModuleStore {
