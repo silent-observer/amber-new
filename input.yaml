@@ -1,0 +1,10 @@
+components:
+  mcu:
+    type: mcu
+    memory: ./hex/blink_pwm.hex
+    components:
+      led:
+        type: led
+wires:
+  - from: mcu:15
+    to: mcu.led:0
