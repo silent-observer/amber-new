@@ -12,5 +12,7 @@ kanal = "0.1.0-pre8"
 once_cell = "1.19.0"
 priority-queue = "1.4.0"
 ref-cast = "1.0.22"
+serde = { version = "1.0.203", features = ["std", "derive", "serde_derive"] }
 smallvec = "1.13.1"
 tokio = "1.36.0"
+yaml-rust2 = "0.8.1"
