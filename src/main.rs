@@ -4,6 +4,7 @@ use components::led::Led;
 use events::EventQueue;
 use module::ActiveModule;
 
+use parser::load;
 use wiring::{InboxTable, WiringTable};
 
 use crate::{components::avr::mcu, module_id::PinAddress};
@@ -15,21 +16,13 @@ pub mod module;
 pub mod module_holder;
 pub mod module_id;
 pub mod multiplexer;
+mod parser;
 pub mod pin_state;
 pub mod wiring;
 
 fn main() {
-    let mut it = InboxTable::new();
-    let mut wt = WiringTable::new();
-
-    let event_queue = EventQueue::new(1, 0, it.add_listener(0));
-    let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex("./hex/blink_pwm.hex");
-    let led = PinAddress::from(mcu.module_store().add_module(|id| Led::new(id)), 0);
-
-    wt.add_wire(PinAddress::from(&mcu, 15), vec![led]);
-
-    it.save();
-    wt.save();
+    let mut modules = load("input.yaml");
+    let mcu = modules[0].as_mut();
 
     let start = Instant::now();
     const SIMULATION_SECONDS: i64 = 10;
