@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    clock::{TickTimestamp, Timestamp},
+    clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module_holder::PassiveModuleStore,
     module_id::ModuleAddress,

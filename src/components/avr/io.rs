@@ -1,11 +1,10 @@
-use std::pin;
 
 use crate::{
     clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_holder::PassiveModuleStore,
-    module_id::{ModuleAddress, PinAddress},
+    module_id::ModuleAddress,
     pin_state::WireState,
 };
 

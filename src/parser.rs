@@ -5,7 +5,7 @@ use yaml_rust2::{Yaml, YamlLoader};
 use crate::{
     components::{avr::mcu, led::Led},
     events::EventQueue,
-    module::{ActiveModule, WireableModule},
+    module::ActiveModule,
     module_id::{ModuleAddress, PinAddress},
     wiring::{InboxTable, WiringTable},
 };

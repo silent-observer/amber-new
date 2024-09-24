@@ -1,13 +1,6 @@
 use std::time::{Duration, Instant};
 
-use components::led::Led;
-use events::EventQueue;
-use module::ActiveModule;
-
 use parser::load;
-use wiring::{InboxTable, WiringTable};
-
-use crate::{components::avr::mcu, module_id::PinAddress};
 
 pub mod clock;
 pub mod components;
