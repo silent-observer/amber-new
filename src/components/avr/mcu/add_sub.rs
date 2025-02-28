@@ -511,7 +511,7 @@ mod tests {
         mcu.write_register(11, 0x11);
         mcu.execute_and_assert_sreg(
             0b0000_10_0_01010_1011, // sbc r10, r11
-            "--000010",
+            "--000000",
         );
         assert_eq!(mcu.read_register(10), 0x00);
     }
@@ -596,7 +596,7 @@ mod tests {
 
         mcu.execute_and_assert_sreg(
             0b0100_0111_0010_1011, // sbci r18, 0x7B
-            "--000010",
+            "--000000",
         );
         assert_eq!(mcu.read_register(18), 0x0000);
     }
