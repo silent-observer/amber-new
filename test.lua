@@ -21,5 +21,5 @@ for i = 0, 10 do
     execute(led_period/2)
     assert(get_wire(led_pin) == true)
     execute(led_period/2)
-    assert(get_wire(led_pin) == true)
+    assert(get_wire(led_pin) == false)
 end

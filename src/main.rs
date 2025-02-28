@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+use clap::{Parser, Subcommand};
 use lua::run_test;
 use parser::load;
 
@@ -17,22 +18,53 @@ pub mod system;
 mod system_tables;
 pub mod wiring;
 
-fn main() {
-    run_test("input.yaml", "test.lua").unwrap();
-    // let mut sys = load("input.yaml");
-    // let mcu = sys.modules[0].as_mut();
+#[derive(Parser, Debug)]
+struct Args {
+    /// Path to the config YAML file
+    #[arg(short, long)]
+    config: Option<String>,
 
-    // let start = Instant::now();
-    // const SIMULATION_SECONDS: i64 = 10;
-    // const FREQ: i64 = 16_000_000;
-    // const CYCLES: i64 = SIMULATION_SECONDS * FREQ;
-    // let model_time = mcu.run_until_time(CYCLES);
-    // let simulation_time = start.elapsed();
-    // let model_time = Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
-    // println!(
-    //     "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
-    //     model_time.as_millis(),
-    //     simulation_time.as_millis(),
-    //     model_time.as_nanos() as f64 / simulation_time.as_nanos() as f64 * 100.0
-    // )
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Run Lua tests
+    Test { tests: Vec<String> },
+    /// Run a simulation
+    Run { duration: i64 },
+}
+
+fn main() {
+    let args: Args = Args::parse();
+    let config = args.config.unwrap_or("input.yaml".to_string());
+    match args.command {
+        Commands::Test { tests } => {
+            if tests.len() == 0 {
+                println!("No tests specified");
+                return;
+            }
+
+            for test in tests {
+                run_test(&config, &test).unwrap();
+            }
+        }
+        Commands::Run { duration } => {
+            let mut sys = load(&config);
+            let mcu = sys.modules[0].as_mut();
+            const FREQ: i64 = 16_000_000;
+
+            let start = Instant::now();
+            let model_time = mcu.run_until_time(duration * FREQ);
+            let simulation_time = start.elapsed();
+            let model_time = Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
+            println!(
+                "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
+                model_time.as_millis(),
+                simulation_time.as_millis(),
+                model_time.as_nanos() as f64 / simulation_time.as_nanos() as f64 * 100.0
+            )
+        }
+    }
 }
