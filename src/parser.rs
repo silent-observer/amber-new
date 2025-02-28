@@ -7,7 +7,7 @@ use crate::{
     events::EventQueue,
     module::ActiveModule,
     module_id::ModuleAddress,
-    system::{find_module_id, System},
+    system::{find_pin_addr, System},
     system_tables::SystemTables,
 };
 
@@ -90,8 +90,8 @@ pub fn load(path: &str) -> System {
         let from_name = wire["from"].as_str().unwrap();
         let to_name = wire["to"].as_str().unwrap();
 
-        let from = find_module_id(from_name, &id_map, &components);
-        let to = find_module_id(to_name, &id_map, &components);
+        let from = find_pin_addr(from_name, &id_map, &components);
+        let to = find_pin_addr(to_name, &id_map, &components);
         system_tables
             .wiring
             .write()

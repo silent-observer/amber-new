@@ -22,7 +22,7 @@ impl System {
     }
 
     pub fn pin_address(&self, id: &str) -> PinAddress {
-        find_module_id(id, &self.id_map, &self.modules)
+        find_pin_addr(id, &self.id_map, &self.modules)
     }
 
     pub fn get_pin(&self, pin_addr: PinAddress) -> WireState {
@@ -37,7 +37,7 @@ impl System {
     }
 }
 
-pub fn find_module_id(
+pub fn find_pin_addr(
     name: &str,
     id_map: &HashMap<String, ModuleAddress>,
     components: &[Box<dyn ActiveModule>],

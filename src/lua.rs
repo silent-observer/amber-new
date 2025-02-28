@@ -8,6 +8,7 @@ use mlua::Lua;
 
 use crate::{
     events::WireChangeEvent,
+    module_id::PinAddress,
     parser::{self},
     pin_state::WireState,
     system::System,
@@ -40,6 +41,38 @@ fn load_set_wire(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
     lua.globals().set("set_wire", set_wire_fn)
 }
 
+fn load_set_wires(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
+    let set_wires_fn =
+        lua.create_function(move |_, (comp, msb, lsb, value): (String, u8, u8, i64)| {
+            let sys_ref = sys.borrow();
+            let module = sys_ref.id_map.get(&comp).unwrap();
+            let bits = (msb as i32 - lsb as i32 + 1).abs();
+            let inbox = sys_ref.system_tables.inbox.read().unwrap();
+            for i in 0..bits {
+                let pin = if lsb < msb {
+                    lsb + i as u8
+                } else {
+                    msb + i as u8
+                };
+                let receiver_id = module.with_pin(pin);
+
+                inbox.send(
+                    WireChangeEvent {
+                        receiver_id,
+                        state: if (value >> i) & 1 == 1 {
+                            WireState::High
+                        } else {
+                            WireState::Low
+                        },
+                    },
+                    sys.borrow().t,
+                );
+            }
+            Ok(())
+        })?;
+    lua.globals().set("set_wires", set_wires_fn)
+}
+
 fn load_get_wire(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
     let get_wire_fn = lua.create_function(move |_, id: String| {
         let pin_addr = sys.borrow().pin_address(&id);
@@ -49,10 +82,34 @@ fn load_get_wire(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
     lua.globals().set("get_wire", get_wire_fn)
 }
 
+fn load_get_wires(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
+    let get_wires_fn = lua.create_function(move |_, (comp, msb, lsb): (String, u8, u8)| {
+        let sys_ref = sys.borrow();
+        let module = sys_ref.id_map.get(&comp).unwrap();
+        let bits = (msb as i32 - lsb as i32 + 1).abs();
+
+        let mut value = 0;
+        for i in 0..bits {
+            let pin = if lsb < msb {
+                lsb + i as u8
+            } else {
+                msb + i as u8
+            };
+            let pin_addr = module.with_pin(pin);
+            let state = sys.borrow().get_pin(pin_addr);
+            value |= (state.to_bool() as u64) << i;
+        }
+        Ok(value)
+    })?;
+    lua.globals().set("get_wires", get_wires_fn)
+}
+
 fn load_support_lib(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
     load_execute(lua, sys.clone())?;
     load_set_wire(lua, sys.clone())?;
     load_get_wire(lua, sys.clone())?;
+    load_set_wires(lua, sys.clone())?;
+    load_get_wires(lua, sys.clone())?;
     Ok(())
 }
 
