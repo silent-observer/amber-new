@@ -1,7 +1,7 @@
 components:
   mcu:
     type: mcu
-    memory: ./hex/blink_timer.hex
+    memory: ./blink_timer.hex
     components:
       led:
         type: led
