@@ -1,4 +1,8 @@
-use std::cmp::Reverse;
+use std::{
+    borrow::Borrow,
+    cmp::Reverse,
+    sync::{Arc, RwLock},
+};
 
 use kanal::Receiver;
 use priority_queue::PriorityQueue;
@@ -10,6 +14,7 @@ use crate::{
     module_id::{EventPortAddress, ModuleAddress, PinAddress},
     multiplexer::MultiplexingTable,
     pin_state::WireState,
+    system_tables::{self, SystemTables},
     wiring::InboxTable,
 };
 
@@ -32,6 +37,8 @@ pub struct PinRedirect {
 
 #[derive(Debug, Clone)]
 pub struct EventQueue {
+    system_tables: SystemTables,
+
     pub clock: Clock,
     internal_events: PriorityQueue<InternalEvent, Reverse<Timestamp>>,
     wire_events: PriorityQueue<WireChangeEvent, Reverse<Timestamp>>,
@@ -43,6 +50,7 @@ pub struct EventQueue {
 
 impl EventQueue {
     pub fn new(
+        system_tables: SystemTables,
         ticks_per_cycle: TimeDiff,
         root_prefix: u8,
         receiver: Receiver<(WireChangeEvent, Timestamp)>,
@@ -55,6 +63,7 @@ impl EventQueue {
             receiver,
 
             multiplexing_table: MultiplexingTable::new(),
+            system_tables,
         }
     }
 
@@ -86,10 +95,10 @@ impl EventQueue {
 
     #[inline]
     pub fn set_wire(&mut self, writer_pin_address: PinAddress, state: WireState) {
-        for reader_id in self
-            .multiplexing_table
-            .outgoing_event_listeners(writer_pin_address)
-        {
+        for reader_id in self.multiplexing_table.outgoing_event_listeners(
+            &self.system_tables.wiring.read().unwrap(),
+            writer_pin_address,
+        ) {
             let mut e = WireChangeEvent {
                 receiver_id: reader_id,
                 state,
@@ -98,7 +107,11 @@ impl EventQueue {
                 e.receiver_id.module_address.advance();
                 self.wire_events.push(e, Reverse(self.clock.current_time()));
             } else {
-                InboxTable::send(e, self.clock.current_time());
+                self.system_tables
+                    .inbox
+                    .read()
+                    .unwrap()
+                    .send(e, self.clock.current_time());
             }
         }
     }
@@ -139,7 +152,7 @@ impl EventQueue {
                     let m = root.find_mut(e.receiver_id.module_address);
 
                     if let Some(m) = m {
-                        if let Some(m) = m.to_wireable() {
+                        if let Some(m) = m.to_wireable_mut() {
                             m.set_pin(self, e.receiver_id.pin_id as PinId, e.state);
                         } else {
                             panic!("Module not wireable: {:?}", e.receiver_id);
@@ -162,6 +175,10 @@ impl EventQueue {
         self.multiplexing_table.set_flag(pin, flag)
     }
 
+    pub fn lookup_pin(&self, addr: PinAddress) -> PinAddress {
+        self.multiplexing_table.read_pin_addr(addr)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.internal_events.is_empty() && self.wire_events.is_empty()
     }
@@ -169,7 +186,12 @@ impl EventQueue {
     pub fn skip_to_event(&mut self) {
         let t1 = self.wire_events.peek().map(|(_, &Reverse(t))| t);
         let t2 = self.internal_events.peek().map(|(_, &Reverse(t))| t);
-        let t = t1.min(t2);
+        let t = match (t1, t2) {
+            (None, None) => None,
+            (None, Some(x)) => Some(x),
+            (Some(x), None) => Some(x),
+            (Some(x), Some(y)) => Some(x.min(y)),
+        };
         if let Some(t) = t {
             let ticks = self.clock.time_to_ticks(t) - self.clock.current_tick();
             self.clock.advance(ticks);

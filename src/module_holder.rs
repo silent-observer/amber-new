@@ -44,6 +44,10 @@ impl Module for PassiveModuleStore {
     }
 
     fn find(&self, mut address: ModuleAddress) -> Option<&dyn Module> {
+        if address.is_empty() {
+            return Some(self);
+        }
+
         let i = address.current() as usize;
         assert!(i < self.modules.len());
         address.advance();
@@ -58,7 +62,10 @@ impl Module for PassiveModuleStore {
         self.modules[i].find_mut(address)
     }
 
-    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+    fn to_wireable(&self) -> Option<&dyn WireableModule> {
+        None
+    }
+    fn to_wireable_mut(&mut self) -> Option<&mut dyn WireableModule> {
         None
     }
 }

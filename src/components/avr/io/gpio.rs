@@ -99,7 +99,10 @@ impl Module for GpioBank {
         }
     }
 
-    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+    fn to_wireable_mut(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
+    }
+    fn to_wireable(&self) -> Option<&dyn WireableModule> {
         Some(self)
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use yaml_rust2::{Yaml, YamlLoader};
 
@@ -7,6 +7,8 @@ use crate::{
     events::EventQueue,
     module::ActiveModule,
     module_id::{ModuleAddress, PinAddress},
+    system::{find_module_id, System},
+    system_tables::{self, SystemTables},
     wiring::{InboxTable, WiringTable},
 };
 
@@ -29,14 +31,19 @@ fn parse_passive_component(
     id_map.insert(name, addr);
 }
 
-fn parse_active_component(
+fn parse_active_component<'a>(
     root_prefix: u8,
     component: &Yaml,
     id: &str,
-    it: &mut InboxTable,
+    system_tables: SystemTables,
     id_map: &mut HashMap<String, ModuleAddress>,
-) -> Box<dyn ActiveModule> {
-    let event_queue = EventQueue::new(1, root_prefix, it.add_listener(root_prefix));
+) -> Box<dyn ActiveModule + 'a> {
+    let recv = system_tables
+        .inbox
+        .write()
+        .unwrap()
+        .add_listener(root_prefix);
+    let event_queue = EventQueue::new(system_tables, 1, root_prefix, recv);
 
     id_map.insert(id.to_string(), ModuleAddress::root().child_id(root_prefix));
     match component["type"].as_str().unwrap() {
@@ -58,29 +65,11 @@ fn parse_active_component(
     }
 }
 
-fn find_module_id(
-    name: &str,
-    id_map: &HashMap<String, ModuleAddress>,
-    components: &[Box<dyn ActiveModule>],
-) -> PinAddress {
-    let (name, pin) = name.split_once(':').unwrap();
-    let mut addr = *id_map.get(name).unwrap();
-    let root = components[addr.current() as usize].as_ref();
-    addr.advance();
-    if addr.is_empty() {
-        PinAddress::from(root, pin.parse::<u8>().unwrap())
-    } else {
-        let m = root.find(addr).unwrap();
-        PinAddress::from(m, pin.parse::<u8>().unwrap())
-    }
-}
-
-pub fn load(path: &str) -> Vec<Box<dyn ActiveModule>> {
+pub fn load(path: &str) -> System {
     let yaml = std::fs::read_to_string(path).unwrap();
     let data = &YamlLoader::load_from_str(&yaml).unwrap()[0];
 
-    let mut it = InboxTable::new();
-    let mut wt = WiringTable::new();
+    let system_tables = SystemTables::new();
 
     let mut id_map: HashMap<String, ModuleAddress> = HashMap::new();
 
@@ -92,7 +81,7 @@ pub fn load(path: &str) -> Vec<Box<dyn ActiveModule>> {
             root_prefix,
             component,
             id.as_str().unwrap(),
-            &mut it,
+            system_tables.clone(),
             &mut id_map,
         ));
         root_prefix += 1;
@@ -104,11 +93,17 @@ pub fn load(path: &str) -> Vec<Box<dyn ActiveModule>> {
 
         let from = find_module_id(from_name, &id_map, &components);
         let to = find_module_id(to_name, &id_map, &components);
-        wt.add_wire(from, vec![to])
+        system_tables
+            .wiring
+            .write()
+            .unwrap()
+            .add_wire(from, vec![to])
     }
 
-    it.save();
-    wt.save();
-
-    components
+    System {
+        system_tables,
+        modules: components,
+        id_map,
+        t: 0,
+    }
 }

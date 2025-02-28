@@ -17,7 +17,8 @@ pub trait Module: Debug {
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;
     fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module>;
 
-    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule>;
+    fn to_wireable(&self) -> Option<&dyn WireableModule>;
+    fn to_wireable_mut(&mut self) -> Option<&mut dyn WireableModule>;
 }
 
 pub trait DataModule: Module {
@@ -34,4 +35,5 @@ pub trait WireableModule: Module {
 pub trait ActiveModule: Module {
     fn run_until_time(&mut self, t: Timestamp) -> Timestamp;
     fn module_store(&mut self) -> &mut PassiveModuleStore;
+    fn event_queue(&self) -> &EventQueue;
 }

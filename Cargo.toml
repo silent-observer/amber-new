@@ -9,7 +9,8 @@ edition = "2021"
 bitfield = "0.14.0"
 itertools = "0.12.1"
 kanal = "0.1.0-pre8"
-once_cell = "1.19.0"
+lazy_static = "1.5.0"
+mlua = { version = "0.9.9", features = ["lua54", "async", "vendored"] }
 priority-queue = "1.4.0"
 ref-cast = "1.0.22"
 serde = { version = "1.0.203", features = ["std", "derive", "serde_derive"] }

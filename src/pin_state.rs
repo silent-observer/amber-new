@@ -31,6 +31,10 @@ impl WireState {
             (WireState::WeakLow, WireState::WeakLow) => WireState::WeakLow,
         }
     }
+
+    pub fn to_bool(&self) -> bool {
+        InputPinState::read_wire_state(*self) == InputPinState::High
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

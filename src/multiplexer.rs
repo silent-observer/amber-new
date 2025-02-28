@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use itertools::Either;
 
-use crate::{module_id::PinAddress, wiring::WiringTable};
+use crate::{
+    module_id::PinAddress,
+    system_tables::{self, SystemTables},
+    wiring::WiringTable,
+};
 
 #[derive(Debug, Clone)]
 struct Multiplexer {
@@ -61,10 +65,10 @@ impl MultiplexingTable {
         }
     }
 
-    pub fn incoming_event_listeners<'a>(
-        &'a self,
+    pub fn incoming_event_listeners<'b>(
+        &'b self,
         addr: PinAddress,
-    ) -> impl Iterator<Item = PinAddress> + 'a {
+    ) -> impl Iterator<Item = PinAddress> + 'b {
         if let Some(connections) = self.incoming_event_table.get(&addr) {
             Either::Left(connections.iter().copied())
         } else {
@@ -72,10 +76,11 @@ impl MultiplexingTable {
         }
     }
 
-    pub fn outgoing_event_listeners<'a>(
-        &'a self,
+    pub fn outgoing_event_listeners<'b>(
+        &'b self,
+        wt: &'b WiringTable,
         addr: PinAddress,
-    ) -> impl Iterator<Item = PinAddress> + 'a {
+    ) -> impl Iterator<Item = PinAddress> + 'b {
         if let Some(&multiplexer_id) = self.multiplexer_table.get(&addr) {
             let m = &self.multiplexers[multiplexer_id];
             let position = m.connections.iter().position(|&a| a == addr).unwrap();
@@ -85,7 +90,7 @@ impl MultiplexingTable {
                         .iter()
                         .copied()
                         .filter(move |&a| a != addr)
-                        .chain(WiringTable::get_connected(m.wireable_pin).map_or_else(
+                        .chain(wt.get_connected(m.wireable_pin).map_or_else(
                             || Either::Right(std::iter::empty()),
                             |v| Either::Left(v.iter().copied()),
                         )),
@@ -95,6 +100,15 @@ impl MultiplexingTable {
             }
         } else {
             Either::Right(std::iter::empty())
+        }
+    }
+
+    pub fn read_pin_addr(&self, addr: PinAddress) -> PinAddress {
+        if let Some(&multiplexer_id) = self.multiplexer_table.get(&addr) {
+            let m = &self.multiplexers[multiplexer_id];
+            m.connections[m.active_position]
+        } else {
+            addr
         }
     }
 }

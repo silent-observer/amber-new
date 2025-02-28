@@ -8,6 +8,7 @@ mod mul;
 mod transfer;
 
 use bitfield::Bit;
+use lazy_static::lazy_static;
 
 use crate::{
     clock::Timestamp,
@@ -16,6 +17,7 @@ use crate::{
     module_holder::PassiveModuleStore,
     module_id::ModuleAddress,
     pin_state::WireState,
+    system_tables::SystemTables,
 };
 
 use super::{
@@ -50,7 +52,7 @@ pub struct Mcu {
 impl Default for Mcu {
     fn default() -> Self {
         let (_, r) = kanal::bounded(0);
-        let queue = EventQueue::new(1, 0, r);
+        let mut queue = EventQueue::new(SystemTables::new(), 1, 0, r);
         Mcu::new(queue)
     }
 }
@@ -258,14 +260,21 @@ impl Module for Mcu {
     }
 
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module> {
-        self.io.find(address)
+        if address.is_empty() {
+            Some(self)
+        } else {
+            self.io.find(address)
+        }
     }
 
     fn find_mut(&mut self, address: ModuleAddress) -> Option<&mut dyn Module> {
         self.io.find_mut(address)
     }
 
-    fn to_wireable(&mut self) -> Option<&mut dyn WireableModule> {
+    fn to_wireable_mut(&mut self) -> Option<&mut dyn WireableModule> {
+        Some(self)
+    }
+    fn to_wireable(&self) -> Option<&dyn WireableModule> {
         Some(self)
     }
 }
@@ -283,6 +292,10 @@ impl ActiveModule for Mcu {
 
     fn module_store(&mut self) -> &mut PassiveModuleStore {
         &mut self.io.module_store
+    }
+
+    fn event_queue(&self) -> &EventQueue {
+        &self.queue
     }
 }
 
