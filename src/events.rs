@@ -199,4 +199,8 @@ impl EventQueue {
             self.clock.advance(1000);
         }
     }
+
+    pub fn add_message(&self, msg: String) {
+        self.system_tables.messages.write().unwrap().push(msg);
+    }
 }

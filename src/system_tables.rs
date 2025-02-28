@@ -9,6 +9,7 @@ use crate::wiring::{InboxTable, WiringTable};
 pub struct SystemTables {
     pub inbox: Arc<RwLock<InboxTable>>,
     pub wiring: Arc<RwLock<WiringTable>>,
+    pub messages: Arc<RwLock<Vec<String>>>,
 }
 
 impl SystemTables {
@@ -16,6 +17,7 @@ impl SystemTables {
         SystemTables {
             inbox: Arc::new(RwLock::new(InboxTable::new())),
             wiring: Arc::new(RwLock::new(WiringTable::new())),
+            messages: Arc::new(RwLock::new(Vec::new())),
         }
     }
 }

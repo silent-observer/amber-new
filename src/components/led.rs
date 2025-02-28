@@ -63,17 +63,21 @@ impl WireableModule for Led {
         match InputPinState::read_wire_state(data) {
             InputPinState::High => {
                 if !self.state {
-                    println!("{}: LED ON: {}", queue.clock.current_time(), self.module_id);
+                    queue.add_message(format!(
+                        "{}: LED ON: {}",
+                        queue.clock.current_time(),
+                        self.module_id
+                    ));
                 }
                 self.state = true;
             }
             InputPinState::Low => {
                 if self.state {
-                    println!(
+                    queue.add_message(format!(
                         "{}: LED OFF: {}",
                         queue.clock.current_time(),
                         self.module_id
-                    );
+                    ));
                 }
                 self.state = false;
             }

@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use clap::{Parser, Subcommand};
-use lua::run_test;
+use lua::{run_test, TestResult};
 use parser::load;
 
 pub mod clock;
@@ -23,6 +23,10 @@ struct Args {
     /// Path to the config YAML file
     #[arg(short, long)]
     config: Option<String>,
+
+    /// Verbose mode
+    #[arg(short, long)]
+    verbose: bool,
 
     #[command(subcommand)]
     command: Commands,
@@ -47,7 +51,28 @@ fn main() {
             }
 
             for test in tests {
-                run_test(&config, &test).unwrap();
+                match run_test(&config, &test) {
+                    TestResult::Success(simulation_time) => {
+                        println!("Test {} passed in {} ms", test, simulation_time.as_millis());
+                    }
+                    TestResult::Error(err, messages) => {
+                        println!("Test {} failed", test);
+                        println!("Error: {}", err);
+                        if args.verbose {
+                            for message in messages.iter() {
+                                println!("{}", message);
+                            }
+                        }
+                    }
+                    TestResult::Failure(messages) => {
+                        println!("Test {} failed", test);
+                        if args.verbose {
+                            for message in messages.iter() {
+                                println!("{}", message);
+                            }
+                        }
+                    }
+                }
             }
         }
         Commands::Run { duration } => {

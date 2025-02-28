@@ -57,18 +57,30 @@ fn load_support_lib(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()>
     Ok(())
 }
 
-pub fn run_test(sys_filename: &str, test_filename: &str) -> Result<Duration, mlua::Error> {
+pub enum TestResult {
+    Success(Duration),
+    Failure(Vec<String>),
+    Error(mlua::Error, Vec<String>),
+}
+
+pub fn run_test(sys_filename: &str, test_filename: &str) -> TestResult {
     let sys: Rc<RefCell<System>> = Rc::new(RefCell::new(parser::load(sys_filename)));
 
     let mut lua = Lua::new();
-    load_support_lib(&mut lua, sys).unwrap();
-    let test_src = std::fs::read_to_string(test_filename)?;
+    load_support_lib(&mut lua, sys.clone()).unwrap();
+    let test_src = match std::fs::read_to_string(test_filename) {
+        Ok(src) => src,
+        Err(err) => return TestResult::Error(err.into(), Vec::new()),
+    };
     let start = Instant::now();
 
     let result = lua.load(test_src).exec();
     let simulation_time = start.elapsed();
     match result {
-        Ok(()) => Ok(simulation_time),
-        Err(err) => Err(err),
+        Ok(()) => TestResult::Success(simulation_time),
+        Err(err) => TestResult::Error(
+            err,
+            sys.borrow().system_tables.messages.read().unwrap().clone(),
+        ),
     }
 }
