@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use crate::wiring::{InboxTable, WiringTable};
 

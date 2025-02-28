@@ -8,7 +8,6 @@ mod mul;
 mod transfer;
 
 use bitfield::Bit;
-use lazy_static::lazy_static;
 
 use crate::{
     clock::Timestamp,
@@ -52,7 +51,7 @@ pub struct Mcu {
 impl Default for Mcu {
     fn default() -> Self {
         let (_, r) = kanal::bounded(0);
-        let mut queue = EventQueue::new(SystemTables::new(), 1, 0, r);
+        let queue = EventQueue::new(SystemTables::new(), 1, 0, r);
         Mcu::new(queue)
     }
 }

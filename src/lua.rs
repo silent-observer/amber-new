@@ -8,7 +8,6 @@ use mlua::Lua;
 
 use crate::{
     events::WireChangeEvent,
-    module::ActiveModule,
     parser::{self},
     pin_state::WireState,
     system::System,
@@ -42,7 +41,7 @@ fn load_set_wire(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
 }
 
 fn load_get_wire(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()> {
-    let get_wire_fn = lua.create_function(move |_, (id, value): (String, bool)| {
+    let get_wire_fn = lua.create_function(move |_, id: String| {
         let pin_addr = sys.borrow().pin_address(&id);
         let state = sys.borrow().get_pin(pin_addr);
         Ok(state.to_bool())
@@ -59,6 +58,7 @@ fn load_support_lib(lua: &mut Lua, sys: Rc<RefCell<System>>) -> mlua::Result<()>
 
 pub enum TestResult {
     Success(Duration),
+    #[allow(dead_code)]
     Failure(Vec<String>),
     Error(mlua::Error, Vec<String>),
 }

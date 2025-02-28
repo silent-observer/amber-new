@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     clock::Timestamp,
-    module::{ActiveModule, Module, PinId},
+    module::{ActiveModule, PinId},
     module_id::{ModuleAddress, PinAddress},
     pin_state::WireState,
     system_tables::SystemTables,

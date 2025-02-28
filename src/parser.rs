@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc};
+use std::collections::HashMap;
 
 use yaml_rust2::{Yaml, YamlLoader};
 
@@ -6,10 +6,9 @@ use crate::{
     components::{avr::mcu, led::Led},
     events::EventQueue,
     module::ActiveModule,
-    module_id::{ModuleAddress, PinAddress},
+    module_id::ModuleAddress,
     system::{find_module_id, System},
-    system_tables::{self, SystemTables},
-    wiring::{InboxTable, WiringTable},
+    system_tables::SystemTables,
 };
 
 fn parse_passive_component(

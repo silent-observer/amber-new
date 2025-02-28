@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Either;
 
-use crate::{
-    module_id::PinAddress,
-    system_tables::{self, SystemTables},
-    wiring::WiringTable,
-};
+use crate::{module_id::PinAddress, wiring::WiringTable};
 
 #[derive(Debug, Clone)]
 struct Multiplexer {

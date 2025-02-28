@@ -1,8 +1,4 @@
-use std::{
-    borrow::Borrow,
-    cmp::Reverse,
-    sync::{Arc, RwLock},
-};
+use std::cmp::Reverse;
 
 use kanal::Receiver;
 use priority_queue::PriorityQueue;
@@ -14,8 +10,7 @@ use crate::{
     module_id::{EventPortAddress, ModuleAddress, PinAddress},
     multiplexer::MultiplexingTable,
     pin_state::WireState,
-    system_tables::{self, SystemTables},
-    wiring::InboxTable,
+    system_tables::SystemTables,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
