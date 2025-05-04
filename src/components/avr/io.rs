@@ -1,3 +1,7 @@
+use std::fmt::format;
+
+use kanal::Sender;
+
 use crate::{
     clock::Timestamp,
     events::{EventQueue, InternalEvent},
@@ -5,6 +9,7 @@ use crate::{
     module_holder::PassiveModuleStore,
     module_id::ModuleAddress,
     pin_state::WireState,
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 use self::{gpio::GpioBank, timer16::Timer16};
@@ -107,6 +112,27 @@ impl IoController {
             timer4: Timer16::new(module_id.child_id(TIMER_4), module_id.with_event_port(0)),
             timer5: Timer16::new(module_id.child_id(TIMER_5), module_id.with_event_port(0)),
         }
+    }
+}
+
+impl VcdSender for IoController {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, start_id: i32) -> (Vec<VcdSignal>, i32) {
+        let mut signals = Vec::new();
+        let mut count = 0;
+        for (i, m) in &mut self.gpio.iter_mut().enumerate() {
+            const GPIO_NAMES: &[u8] = "abcdefghjkl".as_bytes();
+            let (new_signals, new_count) = m.register_vcd(sender.clone(), start_id + count);
+            signals.push(VcdSignal::Scope {
+                name: format!("gpio_{}", GPIO_NAMES[i] as char),
+                children: new_signals,
+            });
+            count += new_count;
+        }
+        (signals, count)
+    }
+
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        None
     }
 }
 

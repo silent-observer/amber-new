@@ -9,6 +9,7 @@ use crate::{
     module_id::ModuleAddress,
     system::{find_pin_addr, System},
     system_tables::SystemTables,
+    vcd::VcdReceiver,
 };
 
 fn parse_passive_component(
@@ -17,17 +18,19 @@ fn parse_passive_component(
     parent_name: &str,
     id: &str,
     id_map: &mut HashMap<String, ModuleAddress>,
+    vcd: &mut VcdReceiver,
+    vcd_enabled: bool,
 ) {
-    let addr = match component["type"].as_str().unwrap() {
-        "led" => {
-            let led = parent.module_store().add_module(|id| Led::new(id));
-            led.address()
-        }
+    let module = match component["type"].as_str().unwrap() {
+        "led" => parent.module_store().add_module(|id| Led::new(id)),
         _ => unimplemented!(),
     };
     let name = format!("{}.{}", parent_name, id);
 
-    id_map.insert(name, addr);
+    if vcd_enabled {
+        vcd.register(module, &name);
+    }
+    id_map.insert(name, module.address());
 }
 
 fn parse_active_component<'a>(
@@ -36,6 +39,8 @@ fn parse_active_component<'a>(
     id: &str,
     system_tables: SystemTables,
     id_map: &mut HashMap<String, ModuleAddress>,
+    vcd: &mut VcdReceiver,
+    vcd_enabled: bool,
 ) -> Box<dyn ActiveModule + 'a> {
     let recv = system_tables
         .inbox
@@ -45,7 +50,7 @@ fn parse_active_component<'a>(
     let event_queue = EventQueue::new(system_tables, 1, root_prefix, recv);
 
     id_map.insert(id.to_string(), ModuleAddress::root().child_id(root_prefix));
-    match component["type"].as_str().unwrap() {
+    let mut c = match component["type"].as_str().unwrap() {
         "mcu" => {
             let memory = component["memory"].as_str().unwrap();
             let mut mcu = mcu::Mcu::new(event_queue).with_flash_hex(memory);
@@ -56,15 +61,22 @@ fn parse_active_component<'a>(
                     id,
                     name.as_str().unwrap(),
                     id_map,
+                    vcd,
+                    vcd_enabled,
                 );
             }
             Box::new(mcu)
         }
         _ => unimplemented!(),
+    };
+
+    if vcd_enabled {
+        vcd.register(c.as_mut(), id);
     }
+    c
 }
 
-pub fn load(path: &str) -> System {
+pub fn load(path: &str, vcd_enabled: bool) -> System {
     let yaml = std::fs::read_to_string(path).unwrap();
     let data = &YamlLoader::load_from_str(&yaml).unwrap()[0];
 
@@ -74,15 +86,20 @@ pub fn load(path: &str) -> System {
 
     let mut components = vec![];
 
+    let mut vcd = VcdReceiver::new(16_000_000);
+
     let mut root_prefix = 0;
     for (id, component) in data["components"].as_hash().unwrap() {
-        components.push(parse_active_component(
+        let c = parse_active_component(
             root_prefix,
             component,
             id.as_str().unwrap(),
             system_tables.clone(),
             &mut id_map,
-        ));
+            &mut vcd,
+            vcd_enabled,
+        );
+        components.push(c);
         root_prefix += 1;
     }
 
@@ -103,6 +120,8 @@ pub fn load(path: &str) -> System {
         system_tables,
         modules: components,
         id_map,
+        vcd_sender: vcd.sender.clone(),
+        vcd,
         t: 0,
     }
 }

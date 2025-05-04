@@ -6,12 +6,13 @@ use crate::{
     module_holder::PassiveModuleStore,
     module_id::ModuleAddress,
     pin_state::WireState,
+    vcd::VcdSender,
 };
 
 pub type PortId = usize;
 pub type PinId = usize;
 
-pub trait Module: Debug {
+pub trait Module: Debug + VcdSender {
     fn address(&self) -> ModuleAddress;
     fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp);
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;

@@ -1,17 +1,22 @@
 use std::collections::HashMap;
 
+use kanal::Sender;
+
 use crate::{
     clock::Timestamp,
     module::{ActiveModule, PinId},
     module_id::{ModuleAddress, PinAddress},
     pin_state::WireState,
     system_tables::SystemTables,
+    vcd::{VcdEvent, VcdReceiver},
 };
 
 pub struct System {
     pub system_tables: SystemTables,
     pub modules: Vec<Box<dyn ActiveModule>>,
     pub id_map: HashMap<String, ModuleAddress>,
+    pub vcd: VcdReceiver,
+    pub vcd_sender: Sender<VcdEvent>,
     pub t: Timestamp,
 }
 

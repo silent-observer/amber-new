@@ -1,4 +1,5 @@
 use bitfield::{Bit, BitMut};
+use kanal::Sender;
 
 use crate::{
     clock::Timestamp,
@@ -6,6 +7,7 @@ use crate::{
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_id::ModuleAddress,
     pin_state::{InputPinState, WireState},
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 #[derive(Debug, Clone)]
@@ -17,6 +19,8 @@ pub struct GpioBank {
     output_states: [WireState; 8],
     input_states: [InputPinState; 8],
     readable_states: [InputPinState; 8],
+
+    vcd_sender: Option<Sender<VcdEvent>>,
 }
 impl GpioBank {
     pub fn new(module_id: ModuleAddress) -> GpioBank {
@@ -27,6 +31,7 @@ impl GpioBank {
             output_states: [WireState::Z; 8],
             input_states: [InputPinState::Low; 8],
             readable_states: [InputPinState::Low; 8],
+            vcd_sender: None,
         }
     }
 
@@ -69,6 +74,27 @@ impl GpioBank {
                 (true, true) => self.set_output_state(i, WireState::High, queue),
             }
         }
+    }
+}
+
+impl VcdSender for GpioBank {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, start_id: i32) -> (Vec<VcdSignal>, i32) {
+        let signal_in = VcdSignal::Signal {
+            name: "in[7:0]".to_string(),
+            id: start_id,
+            size: 8,
+        };
+        let signal_out = VcdSignal::Signal {
+            name: "out[7:0]".to_string(),
+            id: start_id + 1,
+            size: 8,
+        };
+        self.vcd_sender = Some(sender);
+        (vec![signal_in, signal_out], 2)
+    }
+
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        self.vcd_sender.as_ref()
     }
 }
 

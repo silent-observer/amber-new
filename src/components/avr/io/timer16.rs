@@ -1,11 +1,14 @@
 use std::mem::transmute;
 
+use kanal::Sender;
+
 use crate::{
     clock::{TickTimestamp, Timestamp},
     events::{EventQueue, InternalEvent},
     module::{DataModule, Module, PinId, PortId, WireableModule},
     module_id::{EventPortAddress, ModuleAddress},
     pin_state::WireState,
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 #[allow(dead_code)]
@@ -64,7 +67,7 @@ pub struct Timer16Interrupts {
     pub input_capture: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Timer16 {
     last_write_t: TickTimestamp,
     last_write_counter: u16,
@@ -85,6 +88,8 @@ pub struct Timer16 {
 
     icnc: bool, // TODO
     ices: bool, // TODO
+
+    vcd_sender: Option<Sender<VcdEvent>>,
 }
 
 impl Timer16 {
@@ -120,6 +125,8 @@ impl Timer16 {
 
             icnc: false,
             ices: false,
+
+            vcd_sender: None,
         }
     }
 
@@ -416,6 +423,17 @@ impl Timer16 {
             },
             next_event,
         )
+    }
+}
+
+impl VcdSender for Timer16 {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, _start_id: i32) -> (Vec<VcdSignal>, i32) {
+        self.vcd_sender = Some(sender);
+        (vec![], 0)
+    }
+
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        self.vcd_sender.as_ref()
     }
 }
 

@@ -8,6 +8,7 @@ mod mul;
 mod transfer;
 
 use bitfield::Bit;
+use kanal::Sender;
 
 use crate::{
     clock::Timestamp,
@@ -17,6 +18,7 @@ use crate::{
     module_id::ModuleAddress,
     pin_state::WireState,
     system_tables::SystemTables,
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 use super::{
@@ -46,6 +48,9 @@ pub struct Mcu {
     halted: bool,
 
     queue: EventQueue,
+
+    vcd_sender: Option<Sender<VcdEvent>>,
+    vcd_start_id: i32,
 }
 
 impl Default for Mcu {
@@ -72,6 +77,9 @@ impl Mcu {
             halted: false,
 
             queue,
+
+            vcd_sender: None,
+            vcd_start_id: 0,
         }
     }
     pub fn step(&mut self) {
@@ -81,6 +89,11 @@ impl Mcu {
             if let Some(addr) = self.io.get_interrupt_address() {
                 let ticks = self.execute_interrupt(addr);
                 self.queue.clock.advance(ticks as i64);
+                self.send_vcd(
+                    self.queue.clock.current_time(),
+                    self.vcd_start_id,
+                    &WireState::from_u32(self.pc),
+                );
             }
         }
 
@@ -90,6 +103,11 @@ impl Mcu {
             let opcode: u16 = self.read_at_pc_offset(0);
             let ticks = self.execute(opcode);
             self.queue.clock.advance(ticks as i64);
+            self.send_vcd(
+                self.queue.clock.current_time(),
+                self.vcd_start_id,
+                &WireState::from_u32(self.pc),
+            );
         }
     }
 
@@ -245,6 +263,47 @@ impl Mcu {
         for (addr, &val) in data.iter().enumerate() {
             self.write_flash(addr as u32, val);
         }
+    }
+}
+
+impl VcdSender for Mcu {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, start_id: i32) -> (Vec<VcdSignal>, i32) {
+        let mut signals = vec![
+            VcdSignal::Signal {
+                name: "pc[31:0]".to_string(),
+                id: start_id,
+                size: 32,
+            },
+            VcdSignal::Signal {
+                name: "sp[15:0]".to_string(),
+                id: start_id + 1,
+                size: 16,
+            },
+            VcdSignal::Signal {
+                name: "sreg[7:0]".to_string(),
+                id: start_id + 2,
+                size: 8,
+            },
+        ];
+
+        for i in 0..32 {
+            signals.push(VcdSignal::Signal {
+                name: format!("r{}[7:0]", i),
+                id: start_id + 3 + i,
+                size: 8,
+            });
+        }
+
+        let (io_signals, io_count) = self.io.register_vcd(sender.clone(), start_id + 3 + 32);
+        signals.extend(io_signals);
+
+        self.vcd_sender = Some(sender);
+        self.vcd_start_id = start_id;
+        (signals, 3 + 32 + io_count)
+    }
+
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        self.vcd_sender.as_ref()
     }
 }
 

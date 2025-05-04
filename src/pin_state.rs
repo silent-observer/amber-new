@@ -35,6 +35,45 @@ impl WireState {
     pub fn to_bool(&self) -> bool {
         InputPinState::read_wire_state(*self) == InputPinState::High
     }
+
+    pub fn from_u8(x: u8) -> [WireState; 8] {
+        let mut r = [WireState::Low; 8];
+        for i in 0..8 {
+            r[i] = if ((x >> i) & 1) > 0 {
+                WireState::High
+            } else {
+                WireState::Low
+            };
+        }
+        r.reverse();
+        r
+    }
+
+    pub fn from_u16(x: u16) -> [WireState; 16] {
+        let mut r = [WireState::Low; 16];
+        for i in 0..16 {
+            r[i] = if ((x >> i) & 1) > 0 {
+                WireState::High
+            } else {
+                WireState::Low
+            };
+        }
+        r.reverse();
+        r
+    }
+
+    pub fn from_u32(x: u32) -> [WireState; 32] {
+        let mut r = [WireState::Low; 32];
+        for i in 0..32 {
+            r[i] = if ((x >> i) & 1) > 0 {
+                WireState::High
+            } else {
+                WireState::Low
+            };
+        }
+        r.reverse();
+        r
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -1,10 +1,13 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
+
+use kanal::Sender;
 
 use crate::{
     clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module::{Module, WireableModule},
     module_id::ModuleAddress,
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 #[derive(Debug)]
@@ -21,7 +24,7 @@ impl PassiveModuleStore {
         }
     }
 
-    pub fn add_module<M, F>(&mut self, f: F) -> &dyn WireableModule
+    pub fn add_module<M, F>(&mut self, f: F) -> &mut dyn WireableModule
     where
         M: WireableModule + 'static,
         F: FnOnce(ModuleAddress) -> M,
@@ -29,7 +32,23 @@ impl PassiveModuleStore {
         let module_id = self.module_id.child_id(self.modules.len() as u8);
         let module = Box::new(f(module_id));
         self.modules.push(module);
-        self.modules.last().unwrap().deref()
+        self.modules.last_mut().unwrap().deref_mut()
+    }
+}
+
+impl VcdSender for PassiveModuleStore {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, start_id: i32) -> (Vec<VcdSignal>, i32) {
+        let mut signals = Vec::new();
+        let mut count = 0;
+        for m in &mut self.modules {
+            let (new_signals, new_count) = m.register_vcd(sender.clone(), start_id + count);
+            signals.extend(new_signals);
+            count += new_count;
+        }
+        (signals, count)
+    }
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        None
     }
 }
 

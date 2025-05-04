@@ -120,8 +120,8 @@ pub enum TestResult {
     Error(mlua::Error, Vec<String>),
 }
 
-pub fn run_test(sys_filename: &str, test_filename: &str) -> TestResult {
-    let sys: Rc<RefCell<System>> = Rc::new(RefCell::new(parser::load(sys_filename)));
+pub fn run_test(sys_filename: &str, test_filename: &str, vcd_enabled: bool) -> TestResult {
+    let sys: Rc<RefCell<System>> = Rc::new(RefCell::new(parser::load(sys_filename, vcd_enabled)));
 
     let mut lua = Lua::new();
     load_support_lib(&mut lua, sys.clone()).unwrap();

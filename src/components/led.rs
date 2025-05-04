@@ -1,15 +1,21 @@
+use kanal::Sender;
+
 use crate::{
     clock::Timestamp,
     events::{EventQueue, InternalEvent},
     module::{Module, PinId, WireableModule},
     module_id::ModuleAddress,
     pin_state::{InputPinState, WireState},
+    vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Led {
     module_id: ModuleAddress,
     state: bool,
+
+    vcd_sender: Option<Sender<VcdEvent>>,
+    vcd_start_id: i32,
 }
 
 impl Led {
@@ -17,7 +23,26 @@ impl Led {
         Led {
             module_id,
             state: false,
+            vcd_sender: None,
+            vcd_start_id: 0,
         }
+    }
+}
+
+impl VcdSender for Led {
+    fn register_vcd(&mut self, sender: Sender<VcdEvent>, start_id: i32) -> (Vec<VcdSignal>, i32) {
+        let signal = VcdSignal::Signal {
+            name: "led".to_string(),
+            id: start_id,
+            size: 1,
+        };
+        self.vcd_sender = Some(sender);
+        self.vcd_start_id = start_id;
+        (vec![signal], 1)
+    }
+
+    fn vcd_sender(&self) -> Option<&Sender<VcdEvent>> {
+        self.vcd_sender.as_ref()
     }
 }
 
@@ -82,5 +107,6 @@ impl WireableModule for Led {
                 self.state = false;
             }
         }
+        self.send_vcd(queue.clock.current_time(), self.vcd_start_id, &[data]);
     }
 }
