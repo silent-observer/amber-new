@@ -8,7 +8,6 @@ use mlua::Lua;
 
 use crate::{
     events::WireChangeEvent,
-    module_id::PinAddress,
     parser::{self},
     pin_state::WireState,
     system::System,

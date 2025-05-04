@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 
 use kanal::Sender;
 

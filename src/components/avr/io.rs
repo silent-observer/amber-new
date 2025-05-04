@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use kanal::Sender;
 
 use crate::{

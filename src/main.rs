@@ -1,7 +1,4 @@
-use std::{
-    borrow::Borrow,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use arrayvec::ArrayString;
 use clap::{Parser, Subcommand};
@@ -19,7 +16,6 @@ pub mod module_id;
 pub mod multiplexer;
 mod parser;
 pub mod pin_state;
-mod squeue;
 pub mod system;
 mod system_tables;
 mod vcd;
