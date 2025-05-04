@@ -162,9 +162,6 @@ impl Uart {
 
     fn set_tx(&mut self, data: WireState, queue: &mut EventQueue) {
         self.tx_val = data;
-        if data != WireState::Z {
-            println!("{:?}", data);
-        }
         queue.set_wire(
             self.module_id.with_pin(Self::TX_PIN),
             data.combine(&WireState::WeakHigh),

@@ -46,6 +46,7 @@ pub struct Mcu {
     eind: u8,
 
     halted: bool,
+    sleeping: bool,
 
     queue: EventQueue,
 
@@ -75,6 +76,7 @@ impl Mcu {
             eind: 0,
             sreg: StatusRegister(0),
             halted: false,
+            sleeping: false,
 
             queue,
 
@@ -97,7 +99,7 @@ impl Mcu {
             }
         }
 
-        if self.halted {
+        if self.halted || self.sleeping {
             self.queue.skip_to_event();
         } else {
             let opcode: u16 = self.read_at_pc_offset(0);
@@ -209,7 +211,7 @@ impl Mcu {
                             match opcode {
                                 0x9508 => self.instr_ret(opcode),
                                 0x9518 => self.instr_reti(opcode),
-                                0x9588 => todo!(),
+                                0x9588 => self.instr_sleep(opcode),
                                 0x9598 => todo!(),
                                 0x95A8 => todo!(),
                                 0x95C8 => self.instr_lpm(opcode),

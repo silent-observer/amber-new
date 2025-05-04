@@ -1,3 +1,5 @@
+use std::mem::transmute;
+
 use kanal::Sender;
 use uart::Uart;
 
@@ -17,6 +19,20 @@ mod gpio;
 pub mod timer16;
 pub mod uart;
 
+#[allow(dead_code)]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SleepMode {
+    Idle = 0,
+    ADCNoiseReduction = 1,
+    PowerDown = 2,
+    PowerSave = 3,
+    Reserved1 = 4,
+    Reserved2 = 5,
+    Standby = 6,
+    ExtendedStandby = 7,
+}
+
 #[derive(Debug)]
 pub struct IoController {
     module_id: ModuleAddress,
@@ -33,6 +49,9 @@ pub struct IoController {
     uart1: Uart,
     uart2: Uart,
     uart3: Uart,
+
+    pub sleep_mode: SleepMode,
+    pub sleep_enabled: bool,
 }
 
 const BANK_A: u8 = 1;
@@ -172,6 +191,9 @@ impl IoController {
             uart1: Uart::new(module_id.child_id(UART_1), module_id.with_event_port(0)),
             uart2: Uart::new(module_id.child_id(UART_2), module_id.with_event_port(0)),
             uart3: Uart::new(module_id.child_id(UART_3), module_id.with_event_port(0)),
+
+            sleep_mode: SleepMode::Idle,
+            sleep_enabled: false,
         }
     }
 }
@@ -313,6 +335,13 @@ impl DataModule for IoController {
             0x39 => self.timer4.read_port(queue, Timer16::TIFR_PORT),
             0x3A => self.timer5.read_port(queue, Timer16::TIFR_PORT),
 
+            0x53 => {
+                // SMCR
+                let sm = self.sleep_mode as u8;
+                let se = self.sleep_enabled as u8;
+                sm << 1 | se
+            }
+
             0x6E => todo!(),
             0x6F => self.timer1.read_port(queue, Timer16::TIMSK_PORT),
             0x70 => todo!(),
@@ -372,6 +401,14 @@ impl DataModule for IoController {
             0x38 => self.timer3.write_port(queue, Timer16::TIFR_PORT, data),
             0x39 => self.timer4.write_port(queue, Timer16::TIFR_PORT, data),
             0x3A => self.timer5.write_port(queue, Timer16::TIFR_PORT, data),
+
+            0x53 => {
+                // SMCR
+                self.sleep_enabled = (data & 1) != 0;
+                unsafe {
+                    self.sleep_mode = transmute((data >> 1) & 0x7);
+                }
+            }
 
             0x6E => todo!(),
             0x6F => self.timer1.write_port(queue, Timer16::TIMSK_PORT, data),
