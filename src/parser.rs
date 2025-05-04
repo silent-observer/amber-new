@@ -27,7 +27,7 @@ fn parse_passive_component(
     };
     let name = format!("{}.{}", parent_name, id);
 
-    if vcd_enabled {
+    if vcd_enabled && component["vcd"].as_bool().unwrap_or(false) {
         vcd.register(module, &name);
     }
     id_map.insert(name, module.address());
@@ -70,7 +70,7 @@ fn parse_active_component<'a>(
         _ => unimplemented!(),
     };
 
-    if vcd_enabled {
+    if vcd_enabled && component["vcd"].as_bool().unwrap_or(false) {
         vcd.register(c.as_mut(), id);
     }
     c

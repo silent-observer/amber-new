@@ -24,7 +24,7 @@ pub trait Module: Debug + VcdSender {
 
 pub trait DataModule: Module {
     type PortType;
-    fn read_port(&self, queue: &EventQueue, id: PortId) -> Self::PortType;
+    fn read_port(&mut self, queue: &mut EventQueue, id: PortId) -> Self::PortType;
     fn write_port(&mut self, queue: &mut EventQueue, id: PortId, data: Self::PortType);
 }
 

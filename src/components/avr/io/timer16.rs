@@ -475,7 +475,7 @@ impl Module for Timer16 {
 impl DataModule for Timer16 {
     type PortType = u8;
 
-    fn read_port(&self, queue: &EventQueue, id: PortId) -> Self::PortType {
+    fn read_port(&mut self, queue: &mut EventQueue, id: PortId) -> Self::PortType {
         match id {
             0 => {
                 // TCCRnA

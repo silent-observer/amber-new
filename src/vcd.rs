@@ -33,7 +33,6 @@ pub trait VcdSender {
     fn vcd_sender(&self) -> Option<&Sender<VcdEvent>>;
 
     fn send_vcd(&self, t: Timestamp, signal_id: i32, value: &[WireState]) {
-        println!("Sending at {}", t);
         if let Some(sender) = self.vcd_sender() {
             let mut str = ArrayString::new();
             for v in value {
@@ -157,7 +156,6 @@ impl VcdReceiver {
 
     pub fn receive_all(&mut self) {
         while let Ok(Some(e)) = self.receiver.try_recv() {
-            println!("Got {:?}", e);
             if e.signal_id == -1 {
                 self.finished = true;
             } else {

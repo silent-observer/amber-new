@@ -1,4 +1,5 @@
 use kanal::Sender;
+use uart::Uart;
 
 use crate::{
     clock::Timestamp,
@@ -14,6 +15,7 @@ use self::{gpio::GpioBank, timer16::Timer16};
 
 mod gpio;
 pub mod timer16;
+pub mod uart;
 
 #[derive(Debug)]
 pub struct IoController {
@@ -26,6 +28,11 @@ pub struct IoController {
     timer3: Timer16,
     timer4: Timer16,
     timer5: Timer16,
+
+    uart0: Uart,
+    uart1: Uart,
+    uart2: Uart,
+    uart3: Uart,
 }
 
 const BANK_A: u8 = 1;
@@ -44,6 +51,11 @@ const TIMER_1: u8 = 12;
 const TIMER_3: u8 = 13;
 const TIMER_4: u8 = 14;
 const TIMER_5: u8 = 15;
+
+const UART_0: u8 = 16;
+const UART_1: u8 = 17;
+const UART_2: u8 = 18;
+const UART_3: u8 = 19;
 
 const fn pin_id(bank: u8, pin: u8) -> u8 {
     if bank <= BANK_G {
@@ -86,6 +98,52 @@ impl IoController {
             );
         }
 
+        for i in 0..3 {
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_E, i)),
+                &[
+                    module_id.child_id(UART_0).with_pin(i),
+                    module_id.child_id(BANK_E).with_pin(i),
+                ],
+            );
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_H, i)),
+                &[
+                    module_id.child_id(UART_2).with_pin(i),
+                    module_id.child_id(BANK_H).with_pin(i),
+                ],
+            );
+            queue.register_multiplexer(
+                module_id.with_pin(pin_id(BANK_J, i)),
+                &[
+                    module_id.child_id(UART_3).with_pin(i),
+                    module_id.child_id(BANK_J).with_pin(i),
+                ],
+            );
+        }
+
+        queue.register_multiplexer(
+            module_id.with_pin(pin_id(BANK_D, 2)),
+            &[
+                module_id.child_id(UART_1).with_pin(Uart::RX_PIN),
+                module_id.child_id(BANK_D).with_pin(2),
+            ],
+        );
+        queue.register_multiplexer(
+            module_id.with_pin(pin_id(BANK_D, 3)),
+            &[
+                module_id.child_id(UART_1).with_pin(Uart::TX_PIN),
+                module_id.child_id(BANK_D).with_pin(3),
+            ],
+        );
+        queue.register_multiplexer(
+            module_id.with_pin(pin_id(BANK_D, 5)),
+            &[
+                module_id.child_id(UART_1).with_pin(Uart::XCK_PIN),
+                module_id.child_id(BANK_D).with_pin(5),
+            ],
+        );
+
         Self {
             module_id,
             module_store: PassiveModuleStore::new(module_id.child_id(0)),
@@ -109,6 +167,11 @@ impl IoController {
             timer3: Timer16::new(module_id.child_id(TIMER_3), module_id.with_event_port(0)),
             timer4: Timer16::new(module_id.child_id(TIMER_4), module_id.with_event_port(0)),
             timer5: Timer16::new(module_id.child_id(TIMER_5), module_id.with_event_port(0)),
+
+            uart0: Uart::new(module_id.child_id(UART_0), module_id.with_event_port(0)),
+            uart1: Uart::new(module_id.child_id(UART_1), module_id.with_event_port(0)),
+            uart2: Uart::new(module_id.child_id(UART_2), module_id.with_event_port(0)),
+            uart3: Uart::new(module_id.child_id(UART_3), module_id.with_event_port(0)),
         }
     }
 }
@@ -155,6 +218,10 @@ impl Module for IoController {
             13 => self.timer3.find(address),
             14 => self.timer4.find(address),
             15 => self.timer5.find(address),
+            16 => self.uart0.find(address),
+            17 => self.uart1.find(address),
+            18 => self.uart2.find(address),
+            19 => self.uart3.find(address),
             _ => None,
         }
     }
@@ -173,6 +240,10 @@ impl Module for IoController {
             13 => self.timer3.find_mut(address),
             14 => self.timer4.find_mut(address),
             15 => self.timer5.find_mut(address),
+            16 => self.uart0.find_mut(address),
+            17 => self.uart1.find_mut(address),
+            18 => self.uart2.find_mut(address),
+            19 => self.uart3.find_mut(address),
             _ => None,
         }
     }
@@ -223,7 +294,7 @@ impl WireableModule for IoController {
 
 impl DataModule for IoController {
     type PortType = u8;
-    fn read_port(&self, queue: &EventQueue, id: PortId) -> u8 {
+    fn read_port(&mut self, queue: &mut EventQueue, id: PortId) -> u8 {
         match id {
             0x00..=0x1F => panic!("Invalid address {:#02X}", id),
 
@@ -253,12 +324,17 @@ impl DataModule for IoController {
             0x90..=0x9F => self.timer3.read_port(queue, id - 0x90), // Timer 3
             0xA0..=0xAF => self.timer4.read_port(queue, id - 0xA0), // Timer 4
 
+            0xC0..=0xC7 => self.uart0.read_port(queue, id - 0xC0), // UART 0
+            0xC8..=0xCF => self.uart1.read_port(queue, id - 0xC8), // UART 1
+            0xD0..=0xD7 => self.uart2.read_port(queue, id - 0xD0), // UART 2
+
             0x100..=0x102 => self.gpio[7].read_port(queue, id - 0x100), // Port H
             0x103..=0x105 => self.gpio[8].read_port(queue, id - 0x103), // Port J
             0x106..=0x108 => self.gpio[9].read_port(queue, id - 0x106), // Port K
             0x109..=0x10B => self.gpio[10].read_port(queue, id - 0x109), // Port L
 
             0x120..=0x12F => self.timer5.read_port(queue, id - 0x120), // Timer 5
+            0x130..=0x137 => self.uart3.read_port(queue, id - 0x130),  // UART 3
 
             _ => panic!("Invalid address: {}", id),
         }
@@ -271,8 +347,22 @@ impl DataModule for IoController {
             0x20..=0x22 => self.gpio[0].write_port(queue, id - 0x20, data), // Port A
             0x23..=0x25 => self.gpio[1].write_port(queue, id - 0x23, data), // Port B
             0x26..=0x28 => self.gpio[2].write_port(queue, id - 0x26, data), // Port C
-            0x29..=0x2B => self.gpio[3].write_port(queue, id - 0x29, data), // Port D
-            0x2C..=0x2E => self.gpio[4].write_port(queue, id - 0x2C, data), // Port E
+            0x29..=0x2B => {
+                // Port D
+                self.gpio[3].write_port(queue, id - 0x29, data);
+                // Uart DDR
+                if id == 0x2A {
+                    self.uart1.ddr_xck = ((data >> 5) & 1) != 0;
+                }
+            }
+            0x2C..=0x2E => {
+                // Port E
+                self.gpio[4].write_port(queue, id - 0x2C, data);
+                // Uart DDR
+                if id == 0x2D {
+                    self.uart0.ddr_xck = ((data >> 2) & 1) != 0;
+                }
+            }
             0x2F..=0x31 => self.gpio[5].write_port(queue, id - 0x2F, data), // Port F
             0x32..=0x34 => self.gpio[6].write_port(queue, id - 0x32, data), // Port G
 
@@ -294,12 +384,31 @@ impl DataModule for IoController {
             0x90..=0x9F => self.timer3.write_port(queue, id - 0x90, data), // Timer 3
             0xA0..=0xAF => self.timer4.write_port(queue, id - 0xA0, data), // Timer 4
 
-            0x100..=0x102 => self.gpio[7].write_port(queue, id - 0x100, data), // Port H
-            0x103..=0x105 => self.gpio[8].write_port(queue, id - 0x103, data), // Port J
+            0xC0..=0xC7 => self.uart0.write_port(queue, id - 0xC0, data), // UART 0
+            0xC8..=0xCF => self.uart1.write_port(queue, id - 0xC8, data), // UART 1
+            0xD0..=0xD7 => self.uart2.write_port(queue, id - 0xD0, data), // UART 2
+
+            0x100..=0x102 => {
+                // Port H
+                self.gpio[7].write_port(queue, id - 0x100, data);
+                // Uart DDR
+                if id == 0x101 {
+                    self.uart2.ddr_xck = ((data >> 2) & 1) != 0;
+                }
+            }
+            0x103..=0x105 => {
+                // Port J
+                self.gpio[8].write_port(queue, id - 0x103, data);
+                // Uart DDR
+                if id == 0x104 {
+                    self.uart3.ddr_xck = ((data >> 2) & 1) != 0;
+                }
+            }
             0x106..=0x108 => self.gpio[9].write_port(queue, id - 0x106, data), // Port K
             0x109..=0x10B => self.gpio[10].write_port(queue, id - 0x109, data), // Port L
 
-            0x120..=0x12F => self.timer5.write_port(queue, id - 0x120, data),
+            0x120..=0x12F => self.timer5.write_port(queue, id - 0x120, data), // Timer 5
+            0x130..=0x137 => self.uart2.write_port(queue, id - 0x130, data),  // UART 2
 
             _ => panic!("Invalid address: {}", id),
         }
@@ -308,7 +417,7 @@ impl DataModule for IoController {
 
 impl IoController {
     #[inline]
-    pub fn read_port_internal(&self, queue: &EventQueue, id: PortId) -> u8 {
+    pub fn read_port_internal(&mut self, queue: &mut EventQueue, id: PortId) -> u8 {
         assert!(id < 0x40);
         self.read_port(queue, id + 0x20)
     }

@@ -148,7 +148,7 @@ impl WireableModule for GpioBank {
 
 impl DataModule for GpioBank {
     type PortType = u8;
-    fn read_port(&self, _queue: &EventQueue, id: PortId) -> u8 {
+    fn read_port(&mut self, _queue: &mut EventQueue, id: PortId) -> u8 {
         match id {
             0 => self.read_pin(),
             1 => self.ddr_register,

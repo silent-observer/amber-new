@@ -99,4 +99,11 @@ impl InputPinState {
             _ => InputPinState::High,
         }
     }
+
+    pub fn flip(&self) -> InputPinState {
+        match self {
+            InputPinState::Low => InputPinState::High,
+            InputPinState::High => InputPinState::Low,
+        }
+    }
 }
