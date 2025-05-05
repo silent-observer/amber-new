@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{any::Any, fmt::Debug};
 
 use crate::{
     clock::Timestamp,
@@ -20,6 +20,8 @@ pub trait Module: Debug + VcdSender {
 
     fn to_wireable(&self) -> Option<&dyn WireableModule>;
     fn to_wireable_mut(&mut self) -> Option<&mut dyn WireableModule>;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 pub trait DataModule: Module {

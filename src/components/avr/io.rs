@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use std::{any::Any, mem::transmute};
 
 use kanal::Sender;
 use uart::Uart;
@@ -223,6 +223,11 @@ impl Module for IoController {
     #[inline]
     fn address(&self) -> ModuleAddress {
         self.module_id
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {

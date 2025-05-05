@@ -9,8 +9,14 @@ components:
       tx:
         type: led
         vcd: true
+      uart:
+        type: uart
 wires:
   - from: mcu:33
     to: mcu.tx:0
   - from: mcu:34
     to: mcu.clk:0
+  - from: mcu:33
+    to: mcu.uart:0
+  - from: mcu:34
+    to: mcu.uart:2

@@ -7,6 +7,8 @@ mod memory_controller;
 mod mul;
 mod transfer;
 
+use std::any::Any;
+
 use bitfield::Bit;
 use kanal::Sender;
 
@@ -313,6 +315,11 @@ impl Module for Mcu {
     #[inline]
     fn address(&self) -> ModuleAddress {
         self.io.address()
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {

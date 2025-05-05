@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use yaml_rust2::{Yaml, YamlLoader};
 
 use crate::{
-    components::{avr::mcu, led::Led},
+    components::{
+        avr::mcu,
+        led::Led,
+        uart_module::{ParityMode, UartConfig, UartModule},
+    },
     events::EventQueue,
     module::ActiveModule,
     module_id::ModuleAddress,
@@ -23,6 +27,23 @@ fn parse_passive_component(
 ) {
     let module = match component["type"].as_str().unwrap() {
         "led" => parent.module_store().add_module(|id| Led::new(id)),
+        "uart" => {
+            let config = UartConfig {
+                parity: match component["parity"].as_str() {
+                    Some("even") => ParityMode::Even,
+                    Some("odd") => ParityMode::Odd,
+                    Some("none") => ParityMode::Disabled,
+                    Some(_) => panic!("Invalid parity!"),
+                    None => ParityMode::Even,
+                },
+                double_stop_bit: component["double_stop_bit"].as_bool().unwrap_or(false),
+                char_size: component["char_size"].as_i64().unwrap_or(8) as u8,
+                polarity: component["invert_polarity"].as_bool().unwrap_or(false),
+            };
+            parent
+                .module_store()
+                .add_module(|id| UartModule::new(id, config))
+        }
         _ => unimplemented!(),
     };
     let name = format!("{}.{}", parent_name, id);
@@ -121,7 +142,7 @@ pub fn load(path: &str, vcd_enabled: bool) -> System {
         modules: components,
         id_map,
         vcd_sender: vcd.sender.clone(),
-        vcd,
+        vcd: Some(vcd),
         t: 0,
     }
 }

@@ -1,7 +1,11 @@
-use std::time::{Duration, Instant};
+use std::{
+    ops::DerefMut,
+    time::{Duration, Instant},
+};
 
 use arrayvec::ArrayString;
-use clap::{Parser, Subcommand};
+use clap::{builder::Str, Parser, Subcommand};
+use components::uart_module::UartModule;
 use lua::{run_test, TestResult};
 use parser::load;
 use vcd::VcdEvent;
@@ -44,7 +48,14 @@ enum Commands {
     /// Run Lua tests
     Test { tests: Vec<String> },
     /// Run a simulation
-    Run { duration: i64 },
+    Run {
+        /// Simulation duration in seconds. No value means running forever in realtime.
+        duration: Option<i64>,
+
+        /// UART console to connect to
+        #[arg(long)]
+        uart: Option<String>,
+    },
 }
 
 fn main() {
@@ -82,42 +93,53 @@ fn main() {
                 }
             }
         }
-        Commands::Run { duration } => {
+        Commands::Run { duration, uart } => {
             let mut sys = load(&config, args.vcd);
-            let mcu = sys.modules[0].as_mut();
-            const FREQ: i64 = 16_000_000;
-
-            let thread = std::thread::spawn(move || {
-                sys.vcd.run();
-            });
-
-            let start = Instant::now();
-            let model_time = mcu.run_until_time(duration * FREQ);
-            let simulation_time = start.elapsed();
-            let model_time = Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
-
-            if args.verbose {
-                let messages = sys.system_tables.messages.read().unwrap();
-                for message in messages.iter() {
-                    println!("{}", message);
-                }
+            let uart_module: Option<&mut UartModule> =
+                uart.and_then(|id| sys.find_module_mut(&id).as_any_mut().downcast_mut());
+            if let Some(u) = uart_module {
+                u.connect();
             }
 
-            println!(
-                "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
-                model_time.as_millis(),
-                simulation_time.as_millis(),
-                model_time.as_nanos() as f64 / simulation_time.as_nanos() as f64 * 100.0
-            );
+            const FREQ: i64 = 16_000_000;
 
-            sys.vcd_sender
-                .send(VcdEvent {
-                    t: 0,
-                    signal_id: -1,
-                    new_value: ArrayString::new(),
-                })
-                .unwrap();
-            thread.join().unwrap();
+            let mut vcd = sys.vcd.take().unwrap();
+            let thread = std::thread::spawn(move || vcd.run());
+
+            if let Some(duration) = duration {
+                let start = Instant::now();
+                let model_time = duration * FREQ;
+                sys.run_for(model_time);
+
+                let simulation_time = start.elapsed();
+                let model_time =
+                    Duration::from_micros((model_time as f64 / FREQ as f64 * 1e6) as u64);
+
+                if args.verbose {
+                    let messages = sys.system_tables.messages.read().unwrap();
+                    for message in messages.iter() {
+                        println!("{}", message);
+                    }
+                }
+
+                println!(
+                    "Model Time: {} ms, Simulation Time: {} ms, Speed: {:.2}%",
+                    model_time.as_millis(),
+                    simulation_time.as_millis(),
+                    model_time.as_nanos() as f64 / simulation_time.as_nanos() as f64 * 100.0
+                );
+
+                sys.vcd_sender
+                    .send(VcdEvent {
+                        t: 0,
+                        signal_id: -1,
+                        new_value: ArrayString::new(),
+                    })
+                    .unwrap();
+                thread.join().unwrap();
+            } else {
+                sys.run_realtime(FREQ);
+            }
         }
     }
 }

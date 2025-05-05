@@ -178,17 +178,15 @@ impl Mcu {
     pub fn execute_interrupt(&mut self, addr: u16) -> u8 {
         self.halted = false;
         self.sleeping = false;
-        println!("Unsleep mode");
         self.pc -= 1;
         self.push_pc();
         self.set_pc(addr as u32);
         5
     }
 
-    pub fn instr_sleep(&mut self, opcode: u16) -> u8 {
+    pub fn instr_sleep(&mut self, _opcode: u16) -> u8 {
         if self.io.sleep_enabled {
             self.sleeping = true;
-            println!("Sleep mode");
         }
 
         self.pc += 2;

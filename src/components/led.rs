@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use kanal::Sender;
 
 use crate::{
@@ -49,6 +51,11 @@ impl VcdSender for Led {
 impl Module for Led {
     fn address(&self) -> ModuleAddress {
         self.module_id
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {

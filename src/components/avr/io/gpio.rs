@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use bitfield::{Bit, BitMut};
 use kanal::Sender;
 
@@ -102,6 +104,11 @@ impl Module for GpioBank {
     #[inline]
     fn address(&self) -> ModuleAddress {
         self.module_id
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn handle_event(&mut self, event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {

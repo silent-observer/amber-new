@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use std::{any::Any, mem::transmute};
 
 use kanal::Sender;
 
@@ -45,15 +45,8 @@ enum UartMode {
     MasterSpi = 3,
 }
 
-// #[derive(Debug, Clone, Copy)]
-// pub struct Timer16Interrupts {
-//     pub overflow: bool,
-//     pub oc: [bool; 3],
-//     pub input_capture: bool,
-// }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FrameState {
+enum FrameState {
     Idle,
     Start,
     Data(u8),
@@ -207,6 +200,8 @@ impl Uart {
     }
 
     fn trigger_receiver(&mut self, bit: InputPinState, _queue: &mut EventQueue) {
+        self.rx_state = self.advance_state(self.rx_state);
+
         if self.rx_state == FrameState::Idle {
             if bit == InputPinState::Low {
                 self.rx_state = FrameState::Start;
@@ -214,9 +209,7 @@ impl Uart {
             return;
         }
 
-        self.tx_state = self.advance_state(self.tx_state);
-
-        match self.tx_state {
+        match self.rx_state {
             FrameState::Idle => unreachable!(),
             FrameState::Start => unreachable!(),
             FrameState::Data(i) => {
@@ -395,6 +388,11 @@ impl Module for Uart {
         self.module_id
     }
 
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp) {
         assert_eq!(event.receiver_id.event_port_id, 0);
         self.simulate(queue.clock.time_to_ticks(t), queue);
@@ -554,7 +552,6 @@ impl DataModule for Uart {
                 if !self.tx_data_present {
                     self.tx_data = self.tx_data & 0x100 | data as u16;
                     self.tx_data_present = true;
-                    println!("{:02X}", self.tx_data);
                 }
             }
             _ => panic!("Invalid port {}", id),

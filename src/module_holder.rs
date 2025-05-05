@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::{any::Any, ops::DerefMut};
 
 use kanal::Sender;
 
@@ -56,6 +56,11 @@ impl Module for PassiveModuleStore {
     #[inline]
     fn address(&self) -> ModuleAddress {
         self.module_id
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 
     fn handle_event(&mut self, _event: InternalEvent, _queue: &mut EventQueue, _t: Timestamp) {
