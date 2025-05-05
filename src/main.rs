@@ -1,5 +1,7 @@
 use std::{
     ops::DerefMut,
+    process::exit,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -103,8 +105,15 @@ fn main() {
 
             const FREQ: i64 = 16_000_000;
 
-            let mut vcd = sys.vcd.take().unwrap();
-            let thread = std::thread::spawn(move || vcd.run());
+            let vcd = Arc::new(Mutex::new(Some(sys.vcd.take().unwrap().deploy())));
+            let vcd_clone = vcd.clone();
+
+            ctrlc::set_handler(move || {
+                println!("Terminating simulation...");
+                drop(vcd_clone.lock().unwrap().take());
+                exit(0);
+            })
+            .unwrap();
 
             if let Some(duration) = duration {
                 let start = Instant::now();
@@ -128,18 +137,11 @@ fn main() {
                     simulation_time.as_millis(),
                     model_time.as_nanos() as f64 / simulation_time.as_nanos() as f64 * 100.0
                 );
-
-                sys.vcd_sender
-                    .send(VcdEvent {
-                        t: 0,
-                        signal_id: -1,
-                        new_value: ArrayString::new(),
-                    })
-                    .unwrap();
-                thread.join().unwrap();
             } else {
                 sys.run_realtime(FREQ);
             }
+
+            drop(vcd.lock().unwrap().take());
         }
     }
 }

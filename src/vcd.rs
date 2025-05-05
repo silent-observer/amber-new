@@ -6,6 +6,7 @@ use std::{
     cmp::Reverse,
     fs::File,
     io::{BufWriter, Write},
+    thread::JoinHandle,
     time::Duration,
 };
 
@@ -64,6 +65,11 @@ pub struct VcdReceiver {
     writer: BufWriter<File>,
     ns_per_step: i64,
     finished: bool,
+}
+
+pub struct DeployedVcdReceiver {
+    sender: Sender<VcdEvent>,
+    thread: Option<JoinHandle<()>>,
 }
 
 impl VcdReceiver {
@@ -174,5 +180,26 @@ impl VcdReceiver {
             std::thread::sleep(Duration::from_millis(1));
         }
         self.write_up_to(0);
+    }
+
+    pub fn deploy(mut self) -> DeployedVcdReceiver {
+        DeployedVcdReceiver {
+            sender: self.sender.clone(),
+            thread: Some(std::thread::spawn(move || self.run())),
+        }
+    }
+}
+
+impl Drop for DeployedVcdReceiver {
+    fn drop(&mut self) {
+        self.sender
+            .send(VcdEvent {
+                t: 0,
+                signal_id: -1,
+                new_value: ArrayString::new(),
+            })
+            .unwrap();
+        self.thread.take().unwrap().join().unwrap();
+        println!("VCD successfully written");
     }
 }
