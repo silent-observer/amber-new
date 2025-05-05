@@ -2,13 +2,9 @@ use std::{
     any::Any,
     collections::VecDeque,
     io::{stdin, stdout, Read, Write},
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::{Context, Poll, Waker},
     thread::JoinHandle,
 };
 
-use futures::Stream;
 use kanal::{Receiver, Sender};
 
 use crate::{
@@ -172,8 +168,6 @@ impl UartModule {
                     self.frame_error = true;
                 }
 
-                // println!("{:02X}", self.rx_buf);
-
                 if let Some(sender) = &self.rx_sender {
                     if let Err(_) = sender.send(self.rx_buf) {
                         self.rx_sender = None;
@@ -270,7 +264,7 @@ impl UartModule {
         let t1 = std::thread::spawn(move || {
             let mut f = stdout();
             for x in rx_receiver {
-                f.write_all(&[x as u8]);
+                f.write_all(&[x as u8]).unwrap();
             }
         });
         let t2 = std::thread::spawn(move || {

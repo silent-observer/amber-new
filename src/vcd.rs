@@ -45,13 +45,11 @@ pub trait VcdSender {
                 };
                 str.push(c);
             }
-            sender
-                .send(VcdEvent {
-                    t,
-                    signal_id,
-                    new_value: str,
-                })
-                .unwrap();
+            let _ = sender.send(VcdEvent {
+                t,
+                signal_id,
+                new_value: str,
+            });
         }
     }
 }

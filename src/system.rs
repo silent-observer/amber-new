@@ -7,8 +7,8 @@ use std::{
 use kanal::Sender;
 
 use crate::{
-    clock::{TimeDiff, Timestamp},
-    module::{ActiveModule, Module, PinId, WireableModule},
+    clock::Timestamp,
+    module::{ActiveModule, Module, PinId},
     module_id::{ModuleAddress, PinAddress},
     pin_state::WireState,
     system_tables::SystemTables,

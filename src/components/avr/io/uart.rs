@@ -92,11 +92,11 @@ pub struct Uart {
     parity_error: bool,
     frame_error: bool,
     data_overrun_error: bool,
-    tx_complete: bool,
+    pub tx_interrupt: bool,
 
-    rx_interrupt_enable: bool,
-    tx_interrupt_enable: bool,
-    udr_interrupt_enable: bool,
+    pub rx_interrupt_enable: bool,
+    pub tx_interrupt_enable: bool,
+    pub udr_interrupt_enable: bool,
 
     vcd_sender: Option<Sender<VcdEvent>>,
 }
@@ -143,7 +143,7 @@ impl Uart {
             parity_error: false,
             frame_error: false,
             data_overrun_error: false,
-            tx_complete: false,
+            tx_interrupt: false,
 
             rx_interrupt_enable: false,
             tx_interrupt_enable: false,
@@ -199,7 +199,7 @@ impl Uart {
         }
     }
 
-    fn trigger_receiver(&mut self, bit: InputPinState, _queue: &mut EventQueue) {
+    fn trigger_receiver(&mut self, bit: InputPinState, queue: &mut EventQueue) {
         self.rx_state = self.advance_state(self.rx_state);
 
         if self.rx_state == FrameState::Idle {
@@ -241,6 +241,12 @@ impl Uart {
                 } else {
                     self.data_overrun_error = true;
                 }
+
+                if self.rx_interrupt_enable {
+                    queue.fire_event_now(InternalEvent {
+                        receiver_id: self.interrupt_reciever,
+                    })
+                }
             }
             FrameState::End(_) => {}
         }
@@ -253,6 +259,12 @@ impl Uart {
             self.tx_state = FrameState::Start;
             self.tx_buf = self.tx_data;
             self.tx_data_present = false;
+
+            if self.udr_interrupt_enable {
+                queue.fire_event_now(InternalEvent {
+                    receiver_id: self.interrupt_reciever,
+                })
+            }
         }
 
         match self.tx_state {
@@ -278,7 +290,13 @@ impl Uart {
             }
             FrameState::End(_) => {
                 self.set_tx(WireState::High, queue);
-                self.tx_complete = true;
+                self.tx_interrupt = true;
+
+                if self.tx_interrupt_enable {
+                    queue.fire_event_now(InternalEvent {
+                        receiver_id: self.interrupt_reciever,
+                    })
+                }
             }
         }
     }
@@ -370,6 +388,13 @@ impl Uart {
             next_event,
         )
     }
+
+    pub fn rx_interrupt(&self) -> bool {
+        self.rx_data_len > 0
+    }
+    pub fn udr_interrupt(&self) -> bool {
+        !self.tx_data_present
+    }
 }
 
 impl VcdSender for Uart {
@@ -430,9 +455,9 @@ impl DataModule for Uart {
         match id {
             0 => {
                 // UCSRnA
-                let rxc = (self.rx_data_len > 0) as u8;
-                let txc = self.tx_complete as u8;
-                let udre = !self.tx_data_present as u8;
+                let rxc = self.rx_interrupt() as u8;
+                let txc = self.tx_interrupt as u8;
+                let udre = self.udr_interrupt() as u8;
                 let fe = self.frame_error as u8;
                 let dor = self.data_overrun_error as u8;
                 let upe = self.parity_error as u8;
@@ -479,6 +504,12 @@ impl DataModule for Uart {
                     self.rx_data_len = 0;
                     data as u8
                 }
+                2 => {
+                    let data = self.rx_data[0];
+                    self.rx_data[0] = self.rx_data[1];
+                    self.rx_data_len = 1;
+                    data as u8
+                }
                 _ => unreachable!(),
             },
             _ => panic!("Invalid port {}", id),
@@ -490,7 +521,7 @@ impl DataModule for Uart {
         match id {
             0 => {
                 // UCSRnA
-                self.tx_complete = ((data >> 6) & 1) != 0;
+                self.tx_interrupt &= ((data >> 6) & 1) == 0; // Clear if 1
                 self.u2x = (data >> 1) & 1 != 0;
             }
             1 => {

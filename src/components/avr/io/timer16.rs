@@ -83,7 +83,7 @@ pub struct Timer16 {
     compare_output_mode: [CompareOutputMode; 3],
     pins: [bool; 3],
 
-    interrupt_masks: Timer16Interrupts,
+    pub interrupt_masks: Timer16Interrupts,
     pub interrupt_flags: Timer16Interrupts,
 
     icnc: bool, // TODO
@@ -251,8 +251,8 @@ impl Timer16 {
     }
 
     fn trigger_oc(&mut self, i: usize, queue: &mut EventQueue) {
+        self.interrupt_flags.oc[i] = true;
         if self.interrupt_masks.oc[i] {
-            self.interrupt_flags.oc[i] = true;
             queue.fire_event_now(InternalEvent {
                 receiver_id: self.interrupt_reciever,
             })
@@ -390,11 +390,13 @@ impl Timer16 {
                 self.trigger_oc(i, queue);
             }
         }
-        if self.interrupt_masks.overflow && self.overflow_value() == self.last_write_counter {
+        if self.overflow_value() == self.last_write_counter {
             self.interrupt_flags.overflow = true;
-            queue.fire_event_now(InternalEvent {
-                receiver_id: self.interrupt_reciever,
-            })
+            if self.interrupt_masks.overflow {
+                queue.fire_event_now(InternalEvent {
+                    receiver_id: self.interrupt_reciever,
+                })
+            }
         }
     }
 

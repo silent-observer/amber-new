@@ -22,7 +22,7 @@ pub mod uart;
 #[allow(dead_code)]
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SleepMode {
+pub enum SleepMode {
     Idle = 0,
     ADCNoiseReduction = 1,
     PowerDown = 2,
@@ -478,8 +478,14 @@ impl IoController {
     pub fn get_interrupt_address(&mut self) -> Option<u16> {
         let mut result = None;
         let mut have_others = false;
-        fn update(addr: u16, result: &mut Option<u16>, have_others: &mut bool, flag: &mut bool) {
-            if *flag {
+        fn update(
+            addr: u16,
+            result: &mut Option<u16>,
+            have_others: &mut bool,
+            flag: &mut bool,
+            mask: bool,
+        ) {
+            if mask && *flag {
                 *result = match result {
                     None => {
                         *flag = false;
@@ -493,35 +499,80 @@ impl IoController {
             }
         }
 
+        fn update_readonly(
+            addr: u16,
+            result: &mut Option<u16>,
+            have_others: &mut bool,
+            flag: bool,
+            mask: bool,
+        ) {
+            if mask && flag {
+                *result = match result {
+                    None => Some(addr),
+                    Some(x) => {
+                        *have_others = true;
+                        Some(*x)
+                    }
+                }
+            }
+        }
+
         update(
             0x0020,
             &mut result,
             &mut have_others,
             &mut self.timer1.interrupt_flags.input_capture,
+            self.timer1.interrupt_masks.input_capture,
         );
         update(
             0x0022,
             &mut result,
             &mut have_others,
             &mut self.timer1.interrupt_flags.oc[0],
+            self.timer1.interrupt_masks.oc[0],
         );
         update(
             0x0024,
             &mut result,
             &mut have_others,
             &mut self.timer1.interrupt_flags.oc[1],
+            self.timer1.interrupt_masks.oc[1],
         );
         update(
             0x0026,
             &mut result,
             &mut have_others,
             &mut self.timer1.interrupt_flags.oc[2],
+            self.timer1.interrupt_masks.oc[2],
         );
         update(
             0x0028,
             &mut result,
             &mut have_others,
             &mut self.timer1.interrupt_flags.overflow,
+            self.timer1.interrupt_masks.overflow,
+        );
+
+        update_readonly(
+            0x0032,
+            &mut result,
+            &mut have_others,
+            self.uart0.rx_interrupt(),
+            self.uart0.rx_interrupt_enable,
+        );
+        update_readonly(
+            0x0034,
+            &mut result,
+            &mut have_others,
+            self.uart0.udr_interrupt(),
+            self.uart0.udr_interrupt_enable,
+        );
+        update(
+            0x0036,
+            &mut result,
+            &mut have_others,
+            &mut self.uart0.tx_interrupt,
+            self.uart0.tx_interrupt_enable,
         );
 
         update(
@@ -529,30 +580,57 @@ impl IoController {
             &mut result,
             &mut have_others,
             &mut self.timer3.interrupt_flags.input_capture,
+            self.timer3.interrupt_masks.input_capture,
         );
         update(
             0x0040,
             &mut result,
             &mut have_others,
             &mut self.timer3.interrupt_flags.oc[0],
+            self.timer3.interrupt_masks.oc[0],
         );
         update(
             0x0042,
             &mut result,
             &mut have_others,
             &mut self.timer3.interrupt_flags.oc[1],
+            self.timer3.interrupt_masks.oc[1],
         );
         update(
             0x0044,
             &mut result,
             &mut have_others,
             &mut self.timer3.interrupt_flags.oc[2],
+            self.timer3.interrupt_masks.oc[2],
         );
         update(
             0x0046,
             &mut result,
             &mut have_others,
             &mut self.timer3.interrupt_flags.overflow,
+            self.timer3.interrupt_masks.overflow,
+        );
+
+        update_readonly(
+            0x0048,
+            &mut result,
+            &mut have_others,
+            self.uart1.rx_interrupt(),
+            self.uart1.rx_interrupt_enable,
+        );
+        update_readonly(
+            0x004A,
+            &mut result,
+            &mut have_others,
+            self.uart1.udr_interrupt(),
+            self.uart1.udr_interrupt_enable,
+        );
+        update(
+            0x004C,
+            &mut result,
+            &mut have_others,
+            &mut self.uart1.tx_interrupt,
+            self.uart1.tx_interrupt_enable,
         );
 
         update(
@@ -560,30 +638,35 @@ impl IoController {
             &mut result,
             &mut have_others,
             &mut self.timer4.interrupt_flags.input_capture,
+            self.timer4.interrupt_masks.input_capture,
         );
         update(
             0x0054,
             &mut result,
             &mut have_others,
             &mut self.timer4.interrupt_flags.oc[0],
+            self.timer4.interrupt_masks.oc[0],
         );
         update(
             0x0056,
             &mut result,
             &mut have_others,
             &mut self.timer4.interrupt_flags.oc[1],
+            self.timer4.interrupt_masks.oc[1],
         );
         update(
             0x0058,
             &mut result,
             &mut have_others,
             &mut self.timer4.interrupt_flags.oc[2],
+            self.timer4.interrupt_masks.oc[2],
         );
         update(
             0x005A,
             &mut result,
             &mut have_others,
             &mut self.timer4.interrupt_flags.overflow,
+            self.timer4.interrupt_masks.overflow,
         );
 
         update(
@@ -591,30 +674,78 @@ impl IoController {
             &mut result,
             &mut have_others,
             &mut self.timer5.interrupt_flags.input_capture,
+            self.timer5.interrupt_masks.input_capture,
         );
         update(
             0x005E,
             &mut result,
             &mut have_others,
             &mut self.timer5.interrupt_flags.oc[0],
+            self.timer5.interrupt_masks.oc[0],
         );
         update(
             0x0060,
             &mut result,
             &mut have_others,
             &mut self.timer5.interrupt_flags.oc[1],
+            self.timer5.interrupt_masks.oc[1],
         );
         update(
             0x0062,
             &mut result,
             &mut have_others,
             &mut self.timer5.interrupt_flags.oc[2],
+            self.timer5.interrupt_masks.oc[2],
         );
         update(
             0x0064,
             &mut result,
             &mut have_others,
             &mut self.timer5.interrupt_flags.overflow,
+            self.timer5.interrupt_masks.overflow,
+        );
+
+        update_readonly(
+            0x0066,
+            &mut result,
+            &mut have_others,
+            self.uart2.rx_interrupt(),
+            self.uart2.rx_interrupt_enable,
+        );
+        update_readonly(
+            0x0068,
+            &mut result,
+            &mut have_others,
+            self.uart2.udr_interrupt(),
+            self.uart2.udr_interrupt_enable,
+        );
+        update(
+            0x006A,
+            &mut result,
+            &mut have_others,
+            &mut self.uart2.tx_interrupt,
+            self.uart2.tx_interrupt_enable,
+        );
+        update_readonly(
+            0x006C,
+            &mut result,
+            &mut have_others,
+            self.uart3.rx_interrupt(),
+            self.uart3.rx_interrupt_enable,
+        );
+        update_readonly(
+            0x006E,
+            &mut result,
+            &mut have_others,
+            self.uart3.udr_interrupt(),
+            self.uart3.udr_interrupt_enable,
+        );
+        update(
+            0x0070,
+            &mut result,
+            &mut have_others,
+            &mut self.uart3.tx_interrupt,
+            self.uart3.tx_interrupt_enable,
         );
 
         if !have_others {

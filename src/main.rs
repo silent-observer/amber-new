@@ -1,16 +1,13 @@
 use std::{
-    ops::DerefMut,
     process::exit,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use arrayvec::ArrayString;
-use clap::{builder::Str, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use components::uart_module::UartModule;
 use lua::{run_test, TestResult};
 use parser::load;
-use vcd::VcdEvent;
 
 pub mod clock;
 pub mod components;
