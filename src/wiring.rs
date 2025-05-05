@@ -35,7 +35,11 @@ impl WiringTable {
         WiringTable(HashMap::new())
     }
     pub fn add_wire(&mut self, from: PinAddress, to: Vec<PinAddress>) {
-        self.0.insert(from, to);
+        if let Some(vec) = self.0.get_mut(&from) {
+            vec.extend(to);
+        } else {
+            self.0.insert(from, to);
+        }
     }
     pub fn get_connected(&self, id: PinAddress) -> Option<&Vec<PinAddress>> {
         self.0.get(&id)
