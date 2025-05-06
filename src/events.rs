@@ -90,18 +90,27 @@ impl EventQueue {
 
     #[inline]
     pub fn set_wire(&mut self, writer_pin_address: PinAddress, state: WireState) {
+        // println!("{} -> ? to {:?}", writer_pin_address, state);
         for reader_id in self.multiplexing_table.outgoing_event_listeners(
             &self.system_tables.wiring.read().unwrap(),
             writer_pin_address,
         ) {
-            let mut e = WireChangeEvent {
-                receiver_id: reader_id,
-                state,
-            };
+            // println!("{} -> {} to {:?}", writer_pin_address, reader_id, state);
+
             if reader_id.module_address.current() == self.root_prefix {
-                e.receiver_id.module_address.advance();
-                self.wire_events.push(e, Reverse(self.clock.current_time()));
+                for r in self.multiplexing_table.incoming_event_listeners(reader_id) {
+                    let mut e = WireChangeEvent {
+                        receiver_id: r,
+                        state,
+                    };
+                    e.receiver_id.module_address.advance();
+                    self.wire_events.push(e, Reverse(self.clock.current_time()));
+                }
             } else {
+                let e = WireChangeEvent {
+                    receiver_id: reader_id,
+                    state,
+                };
                 self.system_tables
                     .inbox
                     .read()
@@ -117,7 +126,8 @@ impl EventQueue {
                 .multiplexing_table
                 .incoming_event_listeners(e.receiver_id)
                 .collect();
-            for reader in readers {
+            for mut reader in readers {
+                reader.module_address.advance();
                 self.wire_events.push(
                     WireChangeEvent {
                         receiver_id: reader,

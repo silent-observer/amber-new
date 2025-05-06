@@ -5,6 +5,7 @@ use std::{
     thread::JoinHandle,
 };
 
+use getch::Getch;
 use kanal::{Receiver, Sender};
 
 use crate::{
@@ -181,6 +182,10 @@ impl UartModule {
     }
 
     fn trigger_transmitter(&mut self, queue: &mut EventQueue) {
+        while let Ok(Some(x)) = self.tx_receiver.as_mut().unwrap().try_recv() {
+            self.tx_data.push_back(x);
+        }
+
         self.tx_state = self.advance_state(self.tx_state);
 
         if self.tx_state == FrameState::Idle {
@@ -265,15 +270,13 @@ impl UartModule {
             let mut f = stdout();
             for x in rx_receiver {
                 f.write_all(&[x as u8]).unwrap();
+                f.flush().unwrap();
             }
         });
         let t2 = std::thread::spawn(move || {
-            let f = stdin();
-            for x in f.bytes() {
-                match x {
-                    Ok(x) => tx_sender.send(x as u16).unwrap(),
-                    Err(_) => break,
-                }
+            let g = Getch::new();
+            while let Ok(x) = g.getch() {
+                tx_sender.send(x as u16).unwrap();
             }
         });
         (t1, t2)
@@ -363,7 +366,7 @@ impl WireableModule for UartModule {
     fn set_pin(&mut self, queue: &mut EventQueue, id: PinId, data: WireState) {
         match id as u8 {
             Self::RX_PIN => {
-                self.rx_val = InputPinState::read_wire_state(data.combine(&WireState::WeakHigh))
+                self.rx_val = InputPinState::read_wire_state(data.combine(&WireState::WeakHigh));
             }
             Self::TX_PIN => {}
             Self::XCK_PIN => {

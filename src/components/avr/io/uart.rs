@@ -566,6 +566,7 @@ impl DataModule for Uart {
                     self.module_id.with_pin(Self::XCK_PIN),
                     self.mode == UartMode::Sync,
                 );
+                println!("{:02X} -> {:?}", data, self.mode);
             }
             3 => {} // Reserved
             4 => {
@@ -604,7 +605,8 @@ impl WireableModule for Uart {
     fn set_pin(&mut self, queue: &mut EventQueue, id: PinId, data: WireState) {
         match id as u8 {
             Self::RX_PIN => {
-                self.rx_val = InputPinState::read_wire_state(data.combine(&WireState::WeakHigh))
+                self.rx_val = InputPinState::read_wire_state(data.combine(&WireState::WeakHigh));
+                // println!("RX -> {:?}", self.rx_val);
             }
             Self::TX_PIN => {}
             Self::XCK_PIN => {

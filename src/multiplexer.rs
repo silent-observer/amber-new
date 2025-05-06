@@ -81,7 +81,7 @@ impl MultiplexingTable {
             let m = &self.multiplexers[multiplexer_id];
             let position = m.connections.iter().position(|&a| a == addr).unwrap();
             if m.active_position == position {
-                Either::Left(
+                Either::Left(Either::Left(
                     m.connections
                         .iter()
                         .copied()
@@ -90,12 +90,15 @@ impl MultiplexingTable {
                             || Either::Right(std::iter::empty()),
                             |v| Either::Left(v.iter().copied()),
                         )),
-                )
+                ))
             } else {
-                Either::Right(std::iter::empty())
+                Either::Left(Either::Right(std::iter::empty()))
             }
         } else {
-            Either::Right(std::iter::empty())
+            Either::Right(wt.get_connected(addr).map_or_else(
+                || Either::Right(std::iter::empty()),
+                |v| Either::Left(v.iter().copied()),
+            ))
         }
     }
 

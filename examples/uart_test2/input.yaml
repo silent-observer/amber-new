@@ -1,0 +1,29 @@
+components:
+  mcu:
+    type: mcu
+    memory: ./uart_test2.hex
+    components:
+      clk:
+        type: led
+        vcd: true
+      rx:
+        type: led
+        vcd: true
+      tx:
+        type: led
+        vcd: true
+      uart:
+        type: uart
+wires:
+  - from: mcu.uart:1
+    to: mcu.rx:0
+  - from: mcu:33
+    to: mcu.tx:0
+  - from: mcu:34
+    to: mcu.clk:0
+  - from: mcu.uart:1
+    to: mcu:32
+  - from: mcu:33
+    to: mcu.uart:0
+  - from: mcu:34
+    to: mcu.uart:2
