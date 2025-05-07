@@ -97,7 +97,7 @@ fn parse_active_component<'a>(
     c
 }
 
-pub fn load(path: &str, vcd_enabled: bool) -> System {
+pub fn load(path: &str, vcd_enabled: bool, vcd_compressed: bool) -> System {
     let yaml = std::fs::read_to_string(path).unwrap();
     let data = &YamlLoader::load_from_str(&yaml).unwrap()[0];
 
@@ -107,7 +107,7 @@ pub fn load(path: &str, vcd_enabled: bool) -> System {
 
     let mut components = vec![];
 
-    let mut vcd = VcdReceiver::new(16_000_000);
+    let mut vcd = VcdReceiver::new(16_000_000, vcd_compressed);
 
     let mut root_prefix = 0;
     for (id, component) in data["components"].as_hash().unwrap() {

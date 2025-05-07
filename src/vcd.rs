@@ -1,5 +1,6 @@
 use crate::{clock::Timestamp, pin_state::WireState};
 use arrayvec::ArrayString;
+use flate2::{write::GzEncoder, Compression};
 use kanal::{Receiver, Sender};
 use priority_queue::PriorityQueue;
 use std::{
@@ -54,13 +55,34 @@ pub trait VcdSender {
     }
 }
 
+enum VcdWriter {
+    Raw(BufWriter<File>),
+    Gz(GzEncoder<BufWriter<File>>),
+}
+
+impl Write for VcdWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            VcdWriter::Raw(buf_writer) => buf_writer.write(buf),
+            VcdWriter::Gz(gz_encoder) => gz_encoder.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            VcdWriter::Raw(buf_writer) => buf_writer.flush(),
+            VcdWriter::Gz(gz_encoder) => gz_encoder.flush(),
+        }
+    }
+}
+
 pub struct VcdReceiver {
     pub sender: Sender<VcdEvent>,
     receiver: Receiver<VcdEvent>,
     signals: Vec<VcdSignal>,
     signal_count: i32,
     queue: PriorityQueue<VcdEvent, Reverse<Timestamp>>,
-    writer: BufWriter<File>,
+    writer: VcdWriter,
     ns_per_step: i64,
     finished: bool,
 }
@@ -71,16 +93,23 @@ pub struct DeployedVcdReceiver {
 }
 
 impl VcdReceiver {
-    pub fn new(freq: i64) -> Self {
+    pub fn new(freq: i64, compressed: bool) -> Self {
         let (sender, receiver) = kanal::bounded(128);
-        let file = File::create("out.vcd").expect("Couldn't create file out.vcd");
+        let filename = if compressed { "out.vcd.gz" } else { "out.vcd" };
+        let file = File::create(filename).expect("Couldn't create file out.vcd");
+        let buf_writer = BufWriter::new(file);
+        let writer = if compressed {
+            VcdWriter::Gz(GzEncoder::new(buf_writer, Compression::default()))
+        } else {
+            VcdWriter::Raw(buf_writer)
+        };
         Self {
             sender,
             receiver,
             signals: Vec::new(),
             signal_count: 0,
             queue: PriorityQueue::new(),
-            writer: BufWriter::new(file),
+            writer,
             ns_per_step: 1_000_000_000 / freq,
             finished: false,
         }
@@ -98,7 +127,7 @@ impl VcdReceiver {
         self.signal_count += count;
     }
 
-    fn write_id(w: &mut BufWriter<File>, signal_id: i32) {
+    fn write_id(w: &mut impl Write, signal_id: i32) {
         if signal_id == 0 {
             write!(w, "!").unwrap();
             return;
@@ -112,7 +141,7 @@ impl VcdReceiver {
         }
     }
 
-    fn write_signal_header(w: &mut BufWriter<File>, s: &VcdSignal) {
+    fn write_signal_header(w: &mut impl Write, s: &VcdSignal) {
         match s {
             VcdSignal::Scope { name, children } => {
                 writeln!(w, "$scope module {} $end", name).unwrap();
@@ -158,24 +187,17 @@ impl VcdReceiver {
         }
     }
 
-    pub fn receive_all(&mut self) {
-        while let Ok(Some(e)) = self.receiver.try_recv() {
-            if e.signal_id == -1 {
-                self.finished = true;
-            } else {
-                self.queue.push(e, Reverse(e.t));
-            }
-        }
-    }
-
     pub fn run(&mut self) {
         self.write_header();
-        while !self.finished {
-            self.receive_all();
-            if self.queue.len() > 32 * 1024 {
-                self.write_up_to(24 * 1024);
+        while let Ok(e) = self.receiver.recv() {
+            if e.signal_id == -1 {
+                break;
+            } else {
+                self.queue.push(e, Reverse(e.t));
+                if self.queue.len() > 32 * 1024 {
+                    self.write_up_to(24 * 1024);
+                }
             }
-            std::thread::sleep(Duration::from_millis(1));
         }
         self.write_up_to(0);
     }

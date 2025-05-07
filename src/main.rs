@@ -38,6 +38,10 @@ struct Args {
     #[arg(long)]
     vcd: bool,
 
+    /// Enable VCD GZ compression
+    #[arg(long)]
+    gz: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -68,7 +72,7 @@ fn main() {
             }
 
             for test in tests {
-                match run_test(&config, &test, args.vcd) {
+                match run_test(&config, &test, args.vcd, args.gz) {
                     TestResult::Success(simulation_time) => {
                         println!("Test {} passed in {} ms", test, simulation_time.as_millis());
                     }
@@ -93,7 +97,7 @@ fn main() {
             }
         }
         Commands::Run { duration, uart } => {
-            let mut sys = load(&config, args.vcd);
+            let mut sys = load(&config, args.vcd, args.gz);
             let uart_module: Option<&mut UartModule> =
                 uart.and_then(|id| sys.find_module_mut(&id).as_any_mut().downcast_mut());
             if let Some(u) = uart_module {
