@@ -86,7 +86,7 @@ impl Mcu {
             vcd_start_id: 0,
         }
     }
-    pub fn step(&mut self) {
+    pub fn step(&mut self, max_t: i64) {
         self.queue.update(&mut self.io);
 
         if self.io.has_interrupt() && self.sreg.i() {
@@ -102,7 +102,7 @@ impl Mcu {
         }
 
         if self.halted || self.sleeping {
-            self.queue.skip_to_event();
+            self.queue.skip_to_event(max_t);
         } else {
             let opcode: u16 = self.read_at_pc_offset(0);
             let ticks = self.execute(opcode);
@@ -349,7 +349,7 @@ impl Module for Mcu {
 impl ActiveModule for Mcu {
     fn run_until_time(&mut self, t: Timestamp) -> Timestamp {
         while self.queue.clock.current_time() < t {
-            self.step();
+            self.step(t);
             if self.halted && self.queue.is_empty() {
                 break;
             }

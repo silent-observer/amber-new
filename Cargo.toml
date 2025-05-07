@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 arrayvec = "0.7.6"
 bitfield = "0.14.0"
+bus = "2.4.1"
 clap = { version = "4.5.31", features = ["derive"] }
 ctrlc = "3.4.6"
 flate2 = "1.1.1"
@@ -18,6 +19,7 @@ kanal = "0.1.0-pre8"
 lazy_static = "1.5.0"
 mlua = { version = "0.9.9", features = ["lua54", "async", "vendored"] }
 priority-queue = "1.4.0"
+rayon = "1.10.0"
 ref-cast = "1.0.22"
 serde = { version = "1.0.203", features = ["std", "derive", "serde_derive"] }
 smallvec = "1.13.1"

@@ -38,11 +38,11 @@ impl ModuleAddress {
         // Unelegant, but the only way I managed to make it work at compile-time
         let address = [
             id,
+            self.address[0],
             self.address[1],
             self.address[2],
             self.address[3],
             self.address[4],
-            self.address[5],
         ];
         ModuleAddress {
             depth: self.depth + 1,

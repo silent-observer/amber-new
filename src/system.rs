@@ -1,15 +1,22 @@
 use std::{
     collections::HashMap,
+    sync::{
+        atomic::{AtomicI64, AtomicU16, Ordering},
+        Mutex,
+    },
     thread::sleep,
     time::{Duration, Instant},
 };
 
+use bus::Bus;
 use kanal::Sender;
+use rayon::prelude::*;
 
 use crate::{
     clock::Timestamp,
     module::{ActiveModule, Module, PinId},
     module_id::{ModuleAddress, PinAddress},
+    parser::load,
     pin_state::WireState,
     system_tables::SystemTables,
     vcd::{VcdEvent, VcdReceiver},
@@ -26,8 +33,53 @@ pub struct System {
 
 impl System {
     pub fn run_for(&mut self, delta: i64) {
-        self.modules[0].run_until_time(self.t + delta);
-        self.t += delta;
+        const MAX_DESYNC: i64 = 100;
+        let start_time = self.t;
+        let target_time = start_time + delta;
+        let n = self.modules.len() as u16;
+        let ready_counter = AtomicU16::new(0);
+        let goalpost = AtomicI64::new(start_time);
+
+        std::thread::scope(|s| {
+            for m in &mut self.modules {
+                // let mut bus_rx = goalpost_bus.add_rx();
+                let counter_ref = &ready_counter;
+                let goalpost_ref = &goalpost;
+                s.spawn(move || {
+                    let mut my_t = start_time;
+                    let mut marked = false;
+                    loop {
+                        let t = goalpost_ref.load(Ordering::SeqCst);
+                        if t >= target_time {
+                            counter_ref.fetch_add(1, Ordering::SeqCst);
+                            break;
+                        }
+                        if my_t < t {
+                            marked = false;
+                            m.run_until_time(t);
+                            my_t = t;
+                        } else if !marked {
+                            counter_ref.fetch_add(1, Ordering::SeqCst);
+                            marked = true;
+                        }
+                    }
+                });
+            }
+
+            let mut t = self.t;
+            let counter_ref = &ready_counter;
+            let goalpost_ref = &goalpost;
+            s.spawn(move || {
+                while t < target_time {
+                    counter_ref.store(0, Ordering::SeqCst);
+                    let step = MAX_DESYNC.min(target_time - t);
+                    t += step;
+                    goalpost_ref.store(t, Ordering::SeqCst);
+
+                    while counter_ref.load(Ordering::SeqCst) < n {}
+                }
+            });
+        });
     }
 
     pub fn run_realtime(&mut self, freq: i64) -> ! {
@@ -36,8 +88,16 @@ impl System {
         let delta = Duration::from_secs(1) / fps as u32;
         loop {
             let start = Instant::now();
-            self.modules[0].run_until_time(self.t + timesteps);
-            self.t += timesteps;
+
+            const MAX_DESYNC: i64 = 100;
+            let target_time = self.t + timesteps;
+            while self.t < target_time {
+                let step = MAX_DESYNC.min(target_time - self.t);
+                self.modules.par_iter_mut().for_each(|m| {
+                    m.run_until_time(self.t + step);
+                });
+                self.t += step;
+            }
             let elapsed = start.elapsed();
             if elapsed < delta {
                 sleep(delta - elapsed);

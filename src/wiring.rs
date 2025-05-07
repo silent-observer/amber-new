@@ -12,7 +12,7 @@ impl InboxTable {
         InboxTable(HashMap::new())
     }
     pub fn add_listener(&mut self, id: u8) -> Receiver<(WireChangeEvent, Timestamp)> {
-        let (s, r) = kanal::bounded(4);
+        let (s, r) = kanal::bounded(64);
         self.0.insert(id, s);
         r
     }

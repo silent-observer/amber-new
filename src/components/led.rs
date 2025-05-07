@@ -92,28 +92,28 @@ impl WireableModule for Led {
     }
 
     fn set_pin(&mut self, queue: &mut EventQueue, _id: PinId, data: WireState) {
-        match InputPinState::read_wire_state(data) {
-            InputPinState::High => {
-                if !self.state {
-                    queue.add_message(format!(
-                        "{}: LED ON: {}",
-                        queue.clock.current_time(),
-                        self.module_id
-                    ));
-                }
-                self.state = true;
-            }
-            InputPinState::Low => {
-                if self.state {
-                    queue.add_message(format!(
-                        "{}: LED OFF: {}",
-                        queue.clock.current_time(),
-                        self.module_id
-                    ));
-                }
-                self.state = false;
-            }
-        }
+        // match InputPinState::read_wire_state(data) {
+        //     InputPinState::High => {
+        //         if !self.state {
+        //             queue.add_message(format!(
+        //                 "{}: LED ON: {}",
+        //                 queue.clock.current_time(),
+        //                 self.module_id
+        //             ));
+        //         }
+        //         self.state = true;
+        //     }
+        //     InputPinState::Low => {
+        //         if self.state {
+        //             queue.add_message(format!(
+        //                 "{}: LED OFF: {}",
+        //                 queue.clock.current_time(),
+        //                 self.module_id
+        //             ));
+        //         }
+        //         self.state = false;
+        //     }
+        // }
         self.send_vcd(queue.clock.current_time(), self.vcd_start_id, &[data]);
     }
 }

@@ -1,0 +1,45 @@
+components:
+  pinger:
+    type: mcu
+    memory: ./pinger.hex
+    components:
+      clk:
+        type: led
+        vcd: true
+      rx:
+        type: led
+        vcd: true
+      tx:
+        type: led
+        vcd: true
+      uart:
+        type: uart
+  responder:
+    type: mcu
+    memory: ./responder.hex
+    components:
+      uart:
+        type: uart
+wires:
+  - from: pinger:34
+    to: responder:34
+  - from: pinger:34
+    to: pinger.clk:0
+  - from: pinger:34
+    to: pinger.uart:2
+  - from: pinger:34
+    to: responder.uart:2
+
+  - from: pinger:33
+    to: responder:32
+  - from: pinger:33
+    to: pinger.tx:0
+  - from: pinger:33
+    to: responder.uart:0
+
+  - from: responder:33
+    to: pinger:32
+  - from: responder:33
+    to: pinger.rx:0
+  - from: responder:33
+    to: pinger.uart:0

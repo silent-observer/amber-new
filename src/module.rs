@@ -12,7 +12,7 @@ use crate::{
 pub type PortId = usize;
 pub type PinId = usize;
 
-pub trait Module: Debug + VcdSender {
+pub trait Module: Debug + VcdSender + Send {
     fn address(&self) -> ModuleAddress;
     fn handle_event(&mut self, event: InternalEvent, queue: &mut EventQueue, t: Timestamp);
     fn find(&self, address: ModuleAddress) -> Option<&dyn Module>;

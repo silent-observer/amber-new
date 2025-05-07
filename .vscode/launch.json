@@ -19,8 +19,11 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "args": [
+                "run",
+                "1"
+            ],
+            "cwd": "${workspaceFolder}/examples/uart_multi"
         },
         {
             "type": "lldb",

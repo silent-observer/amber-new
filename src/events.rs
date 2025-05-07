@@ -153,11 +153,13 @@ impl EventQueue {
             if let Some((&e, &Reverse(t))) = self.wire_events.peek() {
                 if t <= self.clock.current_time() {
                     self.wire_events.pop().unwrap();
+                    // let root_addr = root.address();
 
                     let m = root.find_mut(e.receiver_id.module_address);
 
                     if let Some(m) = m {
                         if let Some(m) = m.to_wireable_mut() {
+                            // println!("{}, {}. {}", self.root_prefix, root_addr, m.address());
                             m.set_pin(self, e.receiver_id.pin_id as PinId, e.state);
                         } else {
                             panic!("Module not wireable: {:?}", e.receiver_id);
@@ -188,21 +190,26 @@ impl EventQueue {
         self.internal_events.is_empty() && self.wire_events.is_empty()
     }
 
-    pub fn skip_to_event(&mut self) {
-        let t1 = self.wire_events.peek().map(|(_, &Reverse(t))| t);
-        let t2 = self.internal_events.peek().map(|(_, &Reverse(t))| t);
+    pub fn skip_to_event(&mut self, max_t: i64) {
+        let t1 = self
+            .wire_events
+            .peek()
+            .map(|(_, &Reverse(t))| t)
+            .filter(|&t| t < max_t);
+        let t2 = self
+            .internal_events
+            .peek()
+            .map(|(_, &Reverse(t))| t)
+            .filter(|&t| t < max_t);
         let t = match (t1, t2) {
-            (None, None) => None,
-            (None, Some(x)) => Some(x),
-            (Some(x), None) => Some(x),
-            (Some(x), Some(y)) => Some(x.min(y)),
+            (None, None) => max_t,
+            (None, Some(x)) => x,
+            (Some(x), None) => x,
+            (Some(x), Some(y)) => x.min(y),
         };
-        if let Some(t) = t {
-            let ticks = self.clock.time_to_ticks(t) - self.clock.current_tick();
-            self.clock.advance(ticks);
-        } else {
-            self.clock.advance(1000);
-        }
+
+        let ticks = self.clock.time_to_ticks(t) - self.clock.current_tick();
+        self.clock.advance(ticks);
     }
 
     pub fn add_message(&self, msg: String) {

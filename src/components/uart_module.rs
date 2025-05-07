@@ -182,8 +182,10 @@ impl UartModule {
     }
 
     fn trigger_transmitter(&mut self, queue: &mut EventQueue) {
-        while let Ok(Some(x)) = self.tx_receiver.as_mut().unwrap().try_recv() {
-            self.tx_data.push_back(x);
+        if let Some(tx) = self.tx_receiver.as_mut() {
+            while let Ok(Some(x)) = tx.try_recv() {
+                self.tx_data.push_back(x);
+            }
         }
 
         self.tx_state = self.advance_state(self.tx_state);
