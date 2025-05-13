@@ -1,4 +1,5 @@
 use std::{
+    any,
     process::exit,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -71,6 +72,7 @@ fn main() {
                 return;
             }
 
+            let mut any_failed = false;
             for test in tests {
                 match run_test(&config, &test, args.vcd, args.gz) {
                     TestResult::Success(simulation_time) => {
@@ -84,6 +86,7 @@ fn main() {
                                 println!("{}", message);
                             }
                         }
+                        any_failed = true;
                     }
                     TestResult::Failure(messages) => {
                         println!("Test {} failed", test);
@@ -92,8 +95,12 @@ fn main() {
                                 println!("{}", message);
                             }
                         }
+                        any_failed = true;
                     }
                 }
+            }
+            if any_failed {
+                exit(1);
             }
         }
         Commands::Run { duration, uart } => {
