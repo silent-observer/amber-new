@@ -163,9 +163,6 @@ impl IoController {
             ],
         );
 
-        println!("{}", module_id);
-        println!("{}", module_id.child_id(BANK_E));
-
         Self {
             module_id,
             module_store: PassiveModuleStore::new(module_id.child_id(0)),

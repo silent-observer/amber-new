@@ -566,7 +566,6 @@ impl DataModule for Uart {
                     self.module_id.with_pin(Self::XCK_PIN),
                     self.mode == UartMode::Sync,
                 );
-                println!("{:02X} -> {:?}", data, self.mode);
             }
             3 => {} // Reserved
             4 => {
