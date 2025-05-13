@@ -1,14 +1,10 @@
 use std::{
     collections::HashMap,
-    sync::{
-        atomic::{AtomicI64, AtomicU16, Ordering},
-        Mutex,
-    },
+    sync::atomic::{AtomicI64, AtomicU16, Ordering},
     thread::sleep,
     time::{Duration, Instant},
 };
 
-use bus::Bus;
 use kanal::Sender;
 use rayon::prelude::*;
 
@@ -16,7 +12,6 @@ use crate::{
     clock::Timestamp,
     module::{ActiveModule, Module, PinId},
     module_id::{ModuleAddress, PinAddress},
-    parser::load,
     pin_state::WireState,
     system_tables::SystemTables,
     vcd::{VcdEvent, VcdReceiver},

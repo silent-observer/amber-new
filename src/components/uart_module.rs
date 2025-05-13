@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     collections::VecDeque,
-    io::{stdin, stdout, Read, Write},
+    io::{stdout, Write},
     thread::JoinHandle,
 };
 

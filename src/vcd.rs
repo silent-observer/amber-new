@@ -8,7 +8,6 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
     thread::JoinHandle,
-    time::Duration,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -84,7 +83,6 @@ pub struct VcdReceiver {
     queue: PriorityQueue<VcdEvent, Reverse<Timestamp>>,
     writer: VcdWriter,
     ns_per_step: i64,
-    finished: bool,
 }
 
 pub struct DeployedVcdReceiver {
@@ -111,7 +109,6 @@ impl VcdReceiver {
             queue: PriorityQueue::new(),
             writer,
             ns_per_step: 1_000_000_000 / freq,
-            finished: false,
         }
     }
 

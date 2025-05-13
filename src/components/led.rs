@@ -7,15 +7,14 @@ use crate::{
     events::{EventQueue, InternalEvent},
     module::{Module, PinId, WireableModule},
     module_id::ModuleAddress,
-    pin_state::{InputPinState, WireState},
+    pin_state::WireState,
     vcd::{VcdEvent, VcdSender, VcdSignal},
 };
 
 #[derive(Debug, Clone)]
 pub struct Led {
     module_id: ModuleAddress,
-    state: bool,
-
+    // state: bool,
     vcd_sender: Option<Sender<VcdEvent>>,
     vcd_start_id: i32,
 }
@@ -24,7 +23,7 @@ impl Led {
     pub fn new(module_id: ModuleAddress) -> Led {
         Led {
             module_id,
-            state: false,
+            // state: false,
             vcd_sender: None,
             vcd_start_id: 0,
         }
