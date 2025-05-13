@@ -1,5 +1,4 @@
 use std::{
-    any,
     process::exit,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
