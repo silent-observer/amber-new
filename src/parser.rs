@@ -107,7 +107,11 @@ pub fn load(path: &str, vcd_enabled: bool, vcd_compressed: bool) -> System {
 
     let mut components = vec![];
 
-    let mut vcd = VcdReceiver::new(16_000_000, vcd_compressed);
+    let mut vcd = if vcd_enabled {
+        VcdReceiver::new(16_000_000, vcd_compressed)
+    } else {
+        VcdReceiver::new_dummy()
+    };
 
     let mut root_prefix = 0;
     for (id, component) in data["components"].as_hash().unwrap() {

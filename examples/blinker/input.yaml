@@ -5,6 +5,7 @@ components:
     components:
       led:
         type: led
+        vcd: true
 wires:
   - from: mcu:15
     to: mcu.led:0

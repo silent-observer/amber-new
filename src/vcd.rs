@@ -55,6 +55,7 @@ pub trait VcdSender {
 }
 
 enum VcdWriter {
+    None,
     Raw(BufWriter<File>),
     Gz(GzEncoder<BufWriter<File>>),
 }
@@ -62,6 +63,7 @@ enum VcdWriter {
 impl Write for VcdWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
+            VcdWriter::None => Ok(buf.len()),
             VcdWriter::Raw(buf_writer) => buf_writer.write(buf),
             VcdWriter::Gz(gz_encoder) => gz_encoder.write(buf),
         }
@@ -69,6 +71,7 @@ impl Write for VcdWriter {
 
     fn flush(&mut self) -> std::io::Result<()> {
         match self {
+            VcdWriter::None => Ok(()),
             VcdWriter::Raw(buf_writer) => buf_writer.flush(),
             VcdWriter::Gz(gz_encoder) => gz_encoder.flush(),
         }
@@ -88,9 +91,23 @@ pub struct VcdReceiver {
 pub struct DeployedVcdReceiver {
     sender: Sender<VcdEvent>,
     thread: Option<JoinHandle<()>>,
+    disabled: bool,
 }
 
 impl VcdReceiver {
+    pub fn new_dummy() -> Self {
+        let (sender, receiver) = kanal::bounded(128);
+
+        Self {
+            sender,
+            receiver,
+            signals: Vec::new(),
+            signal_count: 0,
+            queue: PriorityQueue::new(),
+            writer: VcdWriter::None,
+            ns_per_step: 1,
+        }
+    }
     pub fn new(freq: i64, compressed: bool) -> Self {
         let (sender, receiver) = kanal::bounded(128);
         let filename = if compressed { "out.vcd.gz" } else { "out.vcd" };
@@ -185,6 +202,10 @@ impl VcdReceiver {
     }
 
     pub fn run(&mut self) {
+        if let VcdWriter::None = self.writer {
+            return;
+        }
+
         self.write_header();
         while let Ok(e) = self.receiver.recv() {
             if e.signal_id == -1 {
@@ -200,23 +221,34 @@ impl VcdReceiver {
     }
 
     pub fn deploy(mut self) -> DeployedVcdReceiver {
+        let disabled = if let VcdWriter::None = self.writer {
+            true
+        } else {
+            false
+        };
+
         DeployedVcdReceiver {
             sender: self.sender.clone(),
             thread: Some(std::thread::spawn(move || self.run())),
+            disabled,
         }
     }
 }
 
 impl Drop for DeployedVcdReceiver {
     fn drop(&mut self) {
-        self.sender
-            .send(VcdEvent {
-                t: 0,
-                signal_id: -1,
-                new_value: ArrayString::new(),
-            })
-            .unwrap();
-        self.thread.take().unwrap().join().unwrap();
-        println!("VCD successfully written");
+        if self.disabled {
+            self.thread.take().unwrap().join().unwrap();
+        } else {
+            self.sender
+                .send(VcdEvent {
+                    t: 0,
+                    signal_id: -1,
+                    new_value: ArrayString::new(),
+                })
+                .unwrap();
+            self.thread.take().unwrap().join().unwrap();
+            println!("VCD successfully written");
+        }
     }
 }

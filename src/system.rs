@@ -74,6 +74,7 @@ impl System {
                     while counter_ref.load(Ordering::SeqCst) < n {}
                 }
             });
+            self.t = target_time;
         });
     }
 
